@@ -464,3 +464,38 @@ pub async fn save_user_preferences(
 
     Ok(())
 }
+
+#[tauri::command]
+pub async fn undo_action(state: State<'_, AppState>) -> Result<Value, String> {
+    state.r_daemon.send_request("UNDO", serde_json::json!({})).await
+}
+
+#[tauri::command]
+pub async fn redo_action(state: State<'_, AppState>) -> Result<Value, String> {
+    state.r_daemon.send_request("REDO", serde_json::json!({})).await
+}
+
+#[tauri::command]
+pub async fn get_undo_status(state: State<'_, AppState>) -> Result<Value, String> {
+    state.r_daemon.send_request("GET_UNDO_STATUS", serde_json::json!({})).await
+}
+
+#[tauri::command]
+pub async fn restore_emergency_checkpoint(state: State<'_, AppState>) -> Result<DatasetMetadata, String> {
+    let res = state
+        .r_daemon
+        .send_request("RESTORE_EMERGENCY_CHECKPOINT", serde_json::json!({}))
+        .await?;
+
+    let meta: DatasetMetadata = serde_json::from_value(res)
+        .map_err(|e| format!("Failed to parse restored dataset: {e}"))?;
+    Ok(meta)
+}
+
+#[tauri::command]
+pub async fn check_emergency_checkpoint(state: State<'_, AppState>) -> Result<Value, String> {
+    state
+        .r_daemon
+        .send_request("CHECK_EMERGENCY_CHECKPOINT", serde_json::json!({}))
+        .await
+}

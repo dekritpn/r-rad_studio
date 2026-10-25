@@ -7,18 +7,22 @@ Welcome to **R-RAD Studio** (R Rapid Application Development & Statistical GUI).
 ## Table of Contents
 1. [System Overview & Architecture](#1-system-overview--architecture)
 2. [Getting Started & Opening Data](#2-getting-started--opening-data)
-3. [The Dual Data Grid](#3-the-dual-data-grid)
+3. [The Dual Data Grid & Spreadsheet Editing](#3-the-dual-data-grid--spreadsheet-editing)
    - [Data View](#data-view)
    - [Variable View](#variable-view)
-   - [Renaming Variables](#renaming-variables)
-   - [Inserting Blank Columns](#inserting-blank-columns)
-4. [Data Transformations & Formulas](#4-data-transformations--formulas)
-5. [Running Statistical Analyses](#5-running-statistical-analyses)
+   - [Renaming Variables & Blank Columns](#renaming-variables--blank-columns)
+   - [Spreadsheet Editing, Cut, Copy, Paste & Search](#spreadsheet-editing-cut-copy-paste--search)
+4. [Forgiving Undo/Redo & Data Safety Architecture](#4-forgiving-undoredo--data-safety-architecture)
+   - [Multi-Level Undo & Redo](#multi-level-undo--redo)
+   - [Hardware & Software Crash Resilience](#hardware--software-crash-resilience)
+   - [Emergency Checkpoint Recovery](#emergency-checkpoint-recovery)
+5. [Data Transformations & Formulas](#5-data-transformations--formulas)
+6. [Running Statistical Analyses](#6-running-statistical-analyses)
    - [Dialog Navigation & Selection](#dialog-navigation--selection)
    - [The Action Buttons: OK, Paste, Reset](#the-action-buttons-ok-paste-reset)
-6. [The Interactive Output Viewer](#6-the-interactive-output-viewer)
-7. [The R Syntax Editor](#7-the-r-syntax-editor)
-8. [Project Management (.rrad) & Interoperability](#8-project-management-rrad--interoperability)
+7. [The Interactive Output Viewer](#7-the-interactive-output-viewer)
+8. [The R Syntax Editor](#8-the-r-syntax-editor)
+9. [Project Management (.rrad) & Interoperability](#9-project-management-rrad--interoperability)
 
 ---
 
@@ -87,19 +91,46 @@ To rename any variable:
 4. Press **Enter** or click outside the cell.
 5. The name will be validated and immediately synchronized with R's `.active_data` environment. The updated name instantly reflects in the **Data View** headers.
 
-### Inserting Blank Columns
-To add a new empty column to the dataset:
-1. Click the **`[ ➕ Add Variable ]`** button in the bottom status bar of Variable View, or select **Data $\rightarrow$ Insert Variable (Blank Column)...** from the top menu.
-2. A new variable with a unique identifier (e.g., `VAR00001`) is appended.
-3. All existing rows are initialized with `NA` (missing values).
+### Renaming Variables & Blank Columns
+- **Renaming Variables:** In **Variable View**, click directly on the variable's **Name** cell, type the new identifier, and press **Enter**. The updated column name is verified and instantly reflected across all views and dialogs.
+- **Inserting Blank Columns:** Select **Edit $\rightarrow$ Insert Variable (Blank Column)...** or click the **`[ ➕ Add Variable ]`** button in the Variable View bottom bar. A new variable (e.g., `VAR00001`) is created and initialized with missing values (`NA`).
+
+### Spreadsheet Editing, Cut, Copy, Paste & Search
+- **Inline Cell Editing:** Double-click any data cell in **Data View** to edit its value directly. Press **Enter** to save, **Tab** to edit the next cell, or **Escape** to cancel.
+- **Inserting & Deleting Rows:** Select **Edit $\rightarrow$ Insert Row (Case)** or click **➕ Insert Row** on the toolbar. To delete a case, select its row number and click **🗑️ Delete Selected Row** or press the **Delete** key.
+- **Copy & Paste (Excel / TSV Interoperability):** Copy any cell or row to clipboard with **Ctrl+C**. Paste single values or multi-row rectangular data copied directly from Excel or Google Sheets with **Ctrl+V** or the **📥 Paste** button.
+- **Find & Replace:** Access the quick search dialog via **Ctrl+F** (Find) or **Ctrl+H** (Replace), supporting column scoping, match whole cell, case sensitivity, and Perl-compatible regular expressions.
 
 ---
 
-## 4. Data Transformations & Formulas
+## 4. Forgiving Undo/Redo & Data Safety Architecture
+
+Data integrity and safety are paramount in R-RAD Studio. Users can perform large-scale data modifications, bulk pastes, and variable computations with complete peace of mind.
+
+### Multi-Level Undo & Redo
+- **30-Level Deep Snapshot History:** R-RAD Studio preserves an in-memory chronological stack of up to 30 snapshot states of the active dataset.
+- **Forgiving Reversibility:** Any major mutation—including formula computations, batch pastes, row deletions, column renaming, and cell replacements—can be undone effortlessly without data loss.
+- **Keyboard Shortcuts:**
+  - **Undo:** Press `Ctrl+Z` (or click `↶ Undo` on the toolbar / Edit menu).
+  - **Redo:** Press `Ctrl+Y` or `Ctrl+Shift+Z` (or click `↷ Redo`).
+- **Memory-Efficient Copy-on-Write:** Built on R's native memory architecture, undo snapshots share unedited columns and incur virtually zero memory overhead.
+
+### Hardware & Software Crash Resilience
+- **Automated Atomic Disk Checkpoint:** After every data mutation, R-RAD Studio saves a durable snapshot to disk (`~/.config/r-rad-studio/autosave/checkpoint.rds`).
+- **Atomic POSIX File Write:** Checkpoints are written to a temporary file (`.tmp.rds`) before being atomically renamed into place. Even in the event of an abrupt power failure, OS freeze, or process termination, your checkpoint file cannot be corrupted.
+- **100% Safe Rust Guarantee:** The underlying desktop bridge operates under strict 100% safe Rust guarantees with zero `unsafe` blocks, eliminating memory unsafety risks.
+
+### Emergency Checkpoint Recovery
+- If an unexpected hardware failure or operating system shutdown occurs, select **Edit $\rightarrow$ Restore from Emergency Checkpoint...**.
+- R-RAD Studio inspects the timestamped checkpoint on disk and restores your dataset to its exact state prior to the interruption.
+
+---
+
+## 5. Data Transformations & Formulas
 
 To derive new variables or compute statistical transformations, use the **Compute Variable** dialog:
 
-1. Select **Data $\rightarrow$ Compute Variable...** from the menu bar.
+1. Select **Edit $\rightarrow$ Compute Variable...** from the menu bar.
 2. In the modal dialog:
    - **Target Variable:** Enter the name of the new or existing variable to compute (e.g., `bmi` or `log_mpg`).
    - **Numeric Expression:** Enter an R mathematical or logical formula. You can use standard arithmetic operators (`+`, `-`, `*`, `/`, `^`), parenthetical grouping, or logical conditions.
@@ -111,7 +142,7 @@ To derive new variables or compute statistical transformations, use the **Comput
      - `scale()`: Z-score standardization.
      - `round()`: Numerical rounding.
      - `ifelse()`: Conditional logic (e.g., `ifelse(mpg > 20, "High", "Low")`).
-3. Click **[ OK ]** to calculate the new variable immediately. The result is appended to `.active_data`, a summary table is logged to the Output Viewer, and the Data View refreshes.
+3. Click **[ OK ]** to calculate the new variable immediately. The result is appended to `.active_data`, an undo checkpoint is registered, a summary table is logged to the Output Viewer, and the Data View refreshes.
 4. Alternatively, click **[ Paste ]** to generate the reproducible R syntax in your Syntax Editor tab.
 
 ---

@@ -58,6 +58,7 @@
       const meta: any = await invoke('insert_row', { position: pos });
       appState.setDataset(meta);
       await loadPage(appState.dataOffset);
+      await appState.refreshUndoStatus();
       appState.daemonStatus = 'idle';
       appState.showToast(`Inserted new row at line ${pos}`);
     } catch (err) {
@@ -81,6 +82,7 @@
 
       const newOffset = Math.min(appState.dataOffset, Math.max(0, meta.row_count - 1));
       await loadPage(newOffset);
+      await appState.refreshUndoStatus();
       appState.daemonStatus = 'idle';
       appState.selectedRowIndex = null;
       appState.showToast(`Deleted row ${globalRow}`);
@@ -153,6 +155,7 @@
       });
       appState.setDataset(meta);
       await loadPage(appState.dataOffset);
+      await appState.refreshUndoStatus();
       appState.daemonStatus = 'idle';
       appState.showToast(`Pasted ${matrix.length} row(s) into dataset`);
     } catch (err) {
@@ -196,6 +199,7 @@
       if (appState.dataRows[rIdx]) {
         appState.dataRows[rIdx][colName] = val === '' ? null : (isNaN(Number(val)) ? val : Number(val));
       }
+      await appState.refreshUndoStatus();
     } catch (err) {
       console.error('Failed to update cell:', err);
       appState.showToast(`Error updating cell: ${err instanceof Error ? err.message : String(err)}`);
@@ -324,6 +328,32 @@
   {#if currentSubTab === 'data'}
     <div class="h-8 bg-slate-950/90 border-b border-slate-800 px-3 flex items-center justify-between text-xs select-none">
       <div class="flex items-center gap-1.5">
+        <!-- Undo & Redo Quick Actions -->
+        <button
+          type="button"
+          class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] flex items-center gap-1 transition-colors disabled:opacity-40 disabled:hover:bg-slate-800 disabled:cursor-not-allowed"
+          onclick={() => appState.undo()}
+          disabled={!appState.canUndo}
+          title="Undo last data change (Ctrl+Z)"
+        >
+          <span>↶ Undo</span>
+          {#if appState.undoCount > 0}
+            <span class="text-[9px] bg-indigo-900/80 text-indigo-300 px-1 rounded-full font-mono">{appState.undoCount}</span>
+          {/if}
+        </button>
+        <button
+          type="button"
+          class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] flex items-center gap-1 transition-colors disabled:opacity-40 disabled:hover:bg-slate-800 disabled:cursor-not-allowed"
+          onclick={() => appState.redo()}
+          disabled={!appState.canRedo}
+          title="Redo data change (Ctrl+Y)"
+        >
+          <span>↷ Redo</span>
+          {#if appState.redoCount > 0}
+            <span class="text-[9px] bg-indigo-900/80 text-indigo-300 px-1 rounded-full font-mono">{appState.redoCount}</span>
+          {/if}
+        </button>
+        <div class="h-3.5 w-px bg-slate-800 mx-1"></div>
         <button
           type="button"
           class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] flex items-center gap-1 transition-colors"

@@ -62,6 +62,7 @@
         appState.appendOutput(`Compute Variable: ${cleanTarget}`, res.blocks);
       }
 
+      await appState.refreshUndoStatus();
       appState.showToast(`Computed variable '${cleanTarget}' successfully!`);
       appState.isComputeDialogOpen = false;
       targetVar = '';

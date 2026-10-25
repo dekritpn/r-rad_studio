@@ -16,6 +16,8 @@
   import { invoke } from '@tauri-apps/api/core';
 
   function handleGlobalKeyDown(e: KeyboardEvent) {
+    const isTextInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+
     if (e.key === 'F1') {
       e.preventDefault();
       appState.openHelp('user');
@@ -28,6 +30,23 @@
     } else if ((e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'H')) {
       e.preventDefault();
       appState.openFindReplace('replace');
+    } else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+      if (e.shiftKey) {
+        if (!isTextInput) {
+          e.preventDefault();
+          appState.redo();
+        }
+      } else {
+        if (!isTextInput) {
+          e.preventDefault();
+          appState.undo();
+        }
+      }
+    } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
+      if (!isTextInput) {
+        e.preventDefault();
+        appState.redo();
+      }
     }
   }
 
@@ -52,6 +71,9 @@
 
       const slice: any = await invoke('get_data_page', { offset: 0, limit: appState.dataLimit });
       appState.setDataPage(slice.rows, slice.total_rows, slice.offset);
+
+      // 4. Synchronize undo/redo engine status
+      await appState.refreshUndoStatus();
     } catch (err) {
       console.error('Initialization error:', err);
       appState.daemonStatus = 'error';

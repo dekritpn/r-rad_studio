@@ -1,6 +1,7 @@
 // src/lib/stores/appState.svelte.ts
 // Central reactive state store for R-RAD Studio using Svelte 5 Runes
 
+import { invoke } from '@tauri-apps/api/core';
 import type { DatasetMetadata, VariableMeta } from '../schemas/dataset';
 import type { OutputLogItem, OutputBlock } from '../schemas/output';
 import type { RFormSchema, MenuNode } from '../schemas/rform';
@@ -13,6 +14,13 @@ class AppStateManager {
   viewMode = $state<ViewMode>('data');
   daemonStatus = $state<DaemonStatus>('idle');
   rVersion = $state<string>('');
+
+  // Undo / Redo & Data Safety State
+  canUndo = $state<boolean>(false);
+  canRedo = $state<boolean>(false);
+  undoCount = $state<number>(0);
+  redoCount = $state<number>(0);
+  lastAction = $state<string>('');
 
   // Dataset State
   activeDataset = $state<DatasetMetadata | null>(null);
@@ -195,6 +203,97 @@ class AppStateManager {
     this.designer.selectedWidgetId = null;
     this.designer.previewMode = false;
     this.viewMode = 'designer';
+  }
+
+  // Undo / Redo & Data Safety Engine
+  async refreshUndoStatus() {
+    try {
+      const status: any = await invoke('get_undo_status');
+      this.canUndo = !!status.can_undo;
+      this.canRedo = !!status.can_redo;
+      this.undoCount = status.undo_count || 0;
+      this.redoCount = status.redo_count || 0;
+      this.lastAction = status.last_action || '';
+    } catch (e) {
+      console.warn('Failed to get undo status:', e);
+    }
+  }
+
+  async undo() {
+    if (!this.canUndo) return;
+    try {
+      this.isLoadingData = true;
+      const meta: any = await invoke('undo_action');
+      if (meta && meta.variables) {
+        this.setDataset(meta);
+        const slice: any = await invoke('get_data_page', {
+          offset: this.dataOffset,
+          limit: this.dataLimit
+        });
+        this.setDataPage(slice.rows, slice.total_rows, slice.offset);
+        this.showToast('Undo berhasil');
+      }
+      await this.refreshUndoStatus();
+    } catch (err: any) {
+      console.error('Undo failed:', err);
+      this.showToast('Gagal melakukan Undo: ' + (err.message || err));
+    } finally {
+      this.isLoadingData = false;
+    }
+  }
+
+  async redo() {
+    if (!this.canRedo) return;
+    try {
+      this.isLoadingData = true;
+      const meta: any = await invoke('redo_action');
+      if (meta && meta.variables) {
+        this.setDataset(meta);
+        const slice: any = await invoke('get_data_page', {
+          offset: this.dataOffset,
+          limit: this.dataLimit
+        });
+        this.setDataPage(slice.rows, slice.total_rows, slice.offset);
+        this.showToast('Redo berhasil');
+      }
+      await this.refreshUndoStatus();
+    } catch (err: any) {
+      console.error('Redo failed:', err);
+      this.showToast('Gagal melakukan Redo: ' + (err.message || err));
+    } finally {
+      this.isLoadingData = false;
+    }
+  }
+
+  async restoreEmergencyCheckpoint() {
+    try {
+      this.isLoadingData = true;
+      const meta: any = await invoke('restore_emergency_checkpoint');
+      if (meta && meta.variables) {
+        this.setDataset(meta);
+        const slice: any = await invoke('get_data_page', {
+          offset: 0,
+          limit: this.dataLimit
+        });
+        this.setDataPage(slice.rows, slice.total_rows, slice.offset);
+        await this.refreshUndoStatus();
+        this.showToast('Data berhasil dipulihkan dari emergency checkpoint!');
+      }
+    } catch (err: any) {
+      console.error('Restore emergency checkpoint failed:', err);
+      alert('Gagal memulihkan dari emergency checkpoint: ' + (err.message || err));
+    } finally {
+      this.isLoadingData = false;
+    }
+  }
+
+  async checkEmergencyCheckpoint(): Promise<{ exists: boolean; path?: string; timestamp?: string }> {
+    try {
+      const res: any = await invoke('check_emergency_checkpoint');
+      return res;
+    } catch {
+      return { exists: false };
+    }
   }
 }
 

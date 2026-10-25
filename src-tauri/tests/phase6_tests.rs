@@ -346,3 +346,99 @@ async fn test_spreadsheet_operations_and_find_replace() {
     let meta_del: DatasetMetadata = serde_json::from_value(del_res).unwrap();
     assert_eq!(meta_del.row_count, 32);
 }
+
+#[tokio::test]
+async fn test_undo_redo_and_crash_checkpoint() {
+    let daemon = get_test_daemon();
+    daemon.ensure_started().await.expect("Failed to start daemon");
+
+    // 1. Load mtcars
+    daemon
+        .send_request("LOAD_DATASET", serde_json::json!({ "file_path": "mtcars" }))
+        .await
+        .expect("Load mtcars failed");
+
+    // 2. Initial state: verify undo status
+    let status_initial = daemon
+        .send_request("GET_UNDO_STATUS", serde_json::json!({}))
+        .await
+        .expect("Get undo status failed");
+    // After load, undo stack is empty (or has 0 items because load clears stacks)
+    assert_eq!(status_initial["can_undo"], false);
+    assert_eq!(status_initial["can_redo"], false);
+
+    // 3. Mutate a cell: row 1, col mpg = 999.0
+    daemon
+        .send_request(
+            "UPDATE_CELL",
+            serde_json::json!({ "row_index": 1, "col_name": "mpg", "value": 999.0 }),
+        )
+        .await
+        .expect("Update cell failed");
+
+    // Verify cell was changed
+    let p1 = daemon
+        .send_request("GET_DATA_PAGE", serde_json::json!({ "offset": 0, "limit": 1 }))
+        .await
+        .unwrap();
+    assert_eq!(p1["rows"][0]["mpg"], 999.0);
+
+    // Verify undo status now can undo
+    let status_after_edit = daemon
+        .send_request("GET_UNDO_STATUS", serde_json::json!({}))
+        .await
+        .unwrap();
+    assert_eq!(status_after_edit["can_undo"], true);
+    assert_eq!(status_after_edit["can_redo"], false);
+
+    // 4. Perform UNDO
+    let undo_res = daemon
+        .send_request("UNDO", serde_json::json!({}))
+        .await
+        .expect("Undo failed");
+    assert!(undo_res["variables"].as_array().is_some());
+
+    // Verify original value (21.0 in mtcars) is restored
+    let p_undone = daemon
+        .send_request("GET_DATA_PAGE", serde_json::json!({ "offset": 0, "limit": 1 }))
+        .await
+        .unwrap();
+    assert_eq!(p_undone["rows"][0]["mpg"], 21.0);
+
+    // 5. Verify REDO is now available
+    let status_after_undo = daemon
+        .send_request("GET_UNDO_STATUS", serde_json::json!({}))
+        .await
+        .unwrap();
+    assert_eq!(status_after_undo["can_redo"], true);
+
+    // 6. Perform REDO
+    daemon
+        .send_request("REDO", serde_json::json!({}))
+        .await
+        .expect("Redo failed");
+
+    // Verify value 999.0 is restored
+    let p_redone = daemon
+        .send_request("GET_DATA_PAGE", serde_json::json!({ "offset": 0, "limit": 1 }))
+        .await
+        .unwrap();
+    assert_eq!(p_redone["rows"][0]["mpg"], 999.0);
+
+    // 7. Verify atomic emergency checkpoint on disk
+    let chk_status = daemon
+        .send_request("CHECK_EMERGENCY_CHECKPOINT", serde_json::json!({}))
+        .await
+        .expect("Check emergency checkpoint failed");
+    assert_eq!(chk_status["exists"], true);
+
+    // 8. Test restore from emergency checkpoint
+    let rest_res = daemon
+        .send_request("RESTORE_EMERGENCY_CHECKPOINT", serde_json::json!({}))
+        .await
+        .expect("Restore emergency checkpoint failed");
+    let rest_meta: DatasetMetadata = serde_json::from_value(rest_res).unwrap();
+    assert_eq!(rest_meta.column_count, 11);
+    assert_eq!(rest_meta.row_count, 32);
+}
+

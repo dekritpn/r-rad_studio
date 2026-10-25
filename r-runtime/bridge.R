@@ -31,6 +31,49 @@ assign(".active_data", .active_data, envir = .GlobalEnv)
 assign("true", TRUE, envir = .GlobalEnv)
 assign("false", FALSE, envir = .GlobalEnv)
 
+# --- UNDO / REDO & DATA SAFETY CRASH RECOVERY SUBSYSTEM ---
+.undo_stack <- list()
+.redo_stack <- list()
+.max_undo_levels <- 30
+
+rrad_write_atomic_checkpoint <- function(df) {
+  tryCatch({
+    home_dir <- Sys.getenv("HOME")
+    if (!nzchar(home_dir)) home_dir <- tempdir()
+    cfg_dir <- file.path(home_dir, ".config", "r-rad-studio", "autosave")
+    if (!dir.exists(cfg_dir)) {
+      dir.create(cfg_dir, recursive = TRUE, showWarnings = FALSE)
+    }
+    tmp_file <- file.path(cfg_dir, "checkpoint.tmp.rds")
+    final_file <- file.path(cfg_dir, "checkpoint.rds")
+    saveRDS(df, tmp_file)
+    file.rename(tmp_file, final_file)
+  }, error = function(e) {
+    tryCatch(saveRDS(df, file.path(tempdir(), "rrad_checkpoint.rds")), error = function(e2) {})
+  })
+}
+
+rrad_push_undo_checkpoint <- function(action_name = "Data Edit") {
+  if (!exists(".active_data", envir = .GlobalEnv)) return()
+  curr_data <- .GlobalEnv$.active_data
+
+  snapshot <- curr_data
+  attr(snapshot, "dataset_name") <- attr(curr_data, "dataset_name") %||% "Dataset"
+
+  .undo_stack <<- c(list(list(
+    data = snapshot,
+    description = action_name,
+    timestamp = Sys.time()
+  )), .undo_stack)
+
+  if (length(.undo_stack) > .max_undo_levels) {
+    .undo_stack <<- .undo_stack[1:.max_undo_levels]
+  }
+
+  .redo_stack <<- list()
+  rrad_write_atomic_checkpoint(curr_data)
+}
+
 # Helper to read dataset from path
 load_dataset_from_file <- function(file_path) {
   if (file_path == "mtcars") {
@@ -130,6 +173,9 @@ handle_request <- function(req) {
       file_path <- args$file_path
       df <- load_dataset_from_file(file_path)
       assign(".active_data", df, envir = .GlobalEnv)
+      .undo_stack <<- list()
+      .redo_stack <<- list()
+      rrad_write_atomic_checkpoint(df)
       response$dataset_name <- attr(df, "dataset_name")
       response$row_count <- nrow(df)
       response$column_count <- ncol(df)
@@ -148,8 +194,10 @@ handle_request <- function(req) {
       col_name <- args$col_name
       updates <- args$updates
       df <- .GlobalEnv$.active_data
+      rrad_push_undo_checkpoint(paste("Update variable", col_name))
       df <- mutate_variable_metadata(df, col_name, updates)
       assign(".active_data", df, envir = .GlobalEnv)
+      rrad_write_atomic_checkpoint(df)
       response$variables <- extract_variable_metadata(df)
     },
 
@@ -201,8 +249,10 @@ handle_request <- function(req) {
       df <- .GlobalEnv$.active_data
       idx <- match(old_name, names(df))
       if (!is.na(idx) && nzchar(new_name)) {
+        rrad_push_undo_checkpoint(paste("Rename variable", old_name))
         names(df)[idx] <- new_name
         assign(".active_data", df, envir = .GlobalEnv)
+        rrad_write_atomic_checkpoint(df)
       }
       response$variables <- extract_variable_metadata(df)
       response$column_count <- ncol(df)
@@ -216,11 +266,13 @@ handle_request <- function(req) {
       measure <- args$measure %||% "scale"
       label <- args$label %||% col_name
       df <- .GlobalEnv$.active_data
+      rrad_push_undo_checkpoint("Add variable")
       n_rows <- nrow(df)
       if (n_rows == 0) n_rows <- 1
       df[[col_name]] <- rep(NA_real_, n_rows)
       attr(df[[col_name]], "label") <- label
       assign(".active_data", df, envir = .GlobalEnv)
+      rrad_write_atomic_checkpoint(df)
       response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
       response$row_count <- nrow(df)
       response$column_count <- ncol(df)
@@ -234,6 +286,7 @@ handle_request <- function(req) {
       df <- .GlobalEnv$.active_data
 
       if (!is.na(row_idx) && row_idx >= 1 && row_idx <= nrow(df) && col_name %in% names(df)) {
+        rrad_push_undo_checkpoint(paste("Edit cell (", col_name, ", row ", row_idx, ")", sep = ""))
         if (is.null(val) || (is.character(val) && !nzchar(trimws(val)))) {
           df[row_idx, col_name] <- NA
         } else if (is.numeric(df[[col_name]])) {
@@ -249,6 +302,7 @@ handle_request <- function(req) {
           df[row_idx, col_name] <- as.character(val)
         }
         assign(".active_data", df, envir = .GlobalEnv)
+        rrad_write_atomic_checkpoint(df)
       }
       response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
       response$row_count <- nrow(df)
@@ -262,6 +316,8 @@ handle_request <- function(req) {
       pos <- as.integer(args$position %||% (n_rows + 1))
       if (is.na(pos) || pos < 1) pos <- 1
       if (pos > n_rows + 1) pos <- n_rows + 1
+
+      rrad_push_undo_checkpoint("Insert row")
 
       new_row <- as.data.frame(lapply(df, function(col) {
         if (is.numeric(col)) NA_real_
@@ -281,6 +337,7 @@ handle_request <- function(req) {
       }
       rownames(df) <- NULL
       assign(".active_data", df, envir = .GlobalEnv)
+      rrad_write_atomic_checkpoint(df)
       response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
       response$row_count <- nrow(df)
       response$column_count <- ncol(df)
@@ -292,9 +349,11 @@ handle_request <- function(req) {
       row_idx <- as.integer(args$row_indices %||% args$row_index)
       row_idx <- row_idx[!is.na(row_idx) & row_idx >= 1 & row_idx <= nrow(df)]
       if (length(row_idx) > 0) {
+        rrad_push_undo_checkpoint("Delete row")
         df <- df[-row_idx, , drop = FALSE]
         rownames(df) <- NULL
         assign(".active_data", df, envir = .GlobalEnv)
+        rrad_write_atomic_checkpoint(df)
       }
       response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
       response$row_count <- nrow(df)
@@ -309,6 +368,7 @@ handle_request <- function(req) {
       df <- .GlobalEnv$.active_data
 
       if (length(matrix_data) > 0) {
+        rrad_push_undo_checkpoint(paste("Paste", length(matrix_data), "rows"))
         col_names <- names(df)
         start_col_idx <- match(start_col_name, col_names)
         if (is.na(start_col_idx)) start_col_idx <- 1
@@ -356,6 +416,7 @@ handle_request <- function(req) {
           }
         }
         assign(".active_data", df, envir = .GlobalEnv)
+        rrad_write_atomic_checkpoint(df)
       }
       response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
       response$row_count <- nrow(df)
@@ -381,6 +442,7 @@ handle_request <- function(req) {
       total_replaced <- 0
 
       if (nzchar(find_text) && length(target_cols) > 0) {
+        rrad_push_undo_checkpoint(paste("Find & Replace '", find_text, "'", sep = ""))
         pat <- if (use_regex) {
           if (match_entire) paste0("^", find_text, "$") else find_text
         } else {
@@ -420,6 +482,7 @@ handle_request <- function(req) {
           }
         }
         assign(".active_data", df, envir = .GlobalEnv)
+        rrad_write_atomic_checkpoint(df)
       }
 
       response$replaced_count <- total_replaced
@@ -449,8 +512,10 @@ handle_request <- function(req) {
         stop(paste("Formula evaluation error:", conditionMessage(e)))
       })
 
+      rrad_push_undo_checkpoint(paste("Compute variable", target_var))
       df[[target_var]] <- calc_val
       assign(".active_data", df, envir = .GlobalEnv)
+      rrad_write_atomic_checkpoint(df)
 
       # Emit summary table of computed variable
       if (is.numeric(calc_val)) {
@@ -474,6 +539,113 @@ handle_request <- function(req) {
       response$blocks <- rrad_get_blocks()
     },
 
+    "UNDO" = {
+      if (length(.undo_stack) > 0) {
+        prev_entry <- .undo_stack[[1]]
+        .undo_stack <<- .undo_stack[-1]
+
+        # Push current state to redo stack
+        .redo_stack <<- c(list(list(
+          data = .GlobalEnv$.active_data,
+          description = prev_entry$description,
+          timestamp = Sys.time()
+        )), .redo_stack)
+
+        if (length(.redo_stack) > .max_undo_levels) {
+          .redo_stack <<- .redo_stack[1:.max_undo_levels]
+        }
+
+        assign(".active_data", prev_entry$data, envir = .GlobalEnv)
+        rrad_write_atomic_checkpoint(prev_entry$data)
+
+        response$can_undo <- length(.undo_stack) > 0
+        response$can_redo <- length(.redo_stack) > 0
+        response$action <- prev_entry$description
+        response$dataset_name <- attr(prev_entry$data, "dataset_name") %||% "Untitled"
+        response$row_count <- nrow(prev_entry$data)
+        response$column_count <- ncol(prev_entry$data)
+        response$variables <- extract_variable_metadata(prev_entry$data)
+      } else {
+        response$status <- "error"
+        response$error <- "Nothing to undo"
+      }
+    },
+
+    "REDO" = {
+      if (length(.redo_stack) > 0) {
+        next_entry <- .redo_stack[[1]]
+        .redo_stack <<- .redo_stack[-1]
+
+        # Push current state to undo stack
+        .undo_stack <<- c(list(list(
+          data = .GlobalEnv$.active_data,
+          description = next_entry$description,
+          timestamp = Sys.time()
+        )), .undo_stack)
+
+        if (length(.undo_stack) > .max_undo_levels) {
+          .undo_stack <<- .undo_stack[1:.max_undo_levels]
+        }
+
+        assign(".active_data", next_entry$data, envir = .GlobalEnv)
+        rrad_write_atomic_checkpoint(next_entry$data)
+
+        response$can_undo <- length(.undo_stack) > 0
+        response$can_redo <- length(.redo_stack) > 0
+        response$action <- next_entry$description
+        response$dataset_name <- attr(next_entry$data, "dataset_name") %||% "Untitled"
+        response$row_count <- nrow(next_entry$data)
+        response$column_count <- ncol(next_entry$data)
+        response$variables <- extract_variable_metadata(next_entry$data)
+      } else {
+        response$status <- "error"
+        response$error <- "Nothing to redo"
+      }
+    },
+
+    "GET_UNDO_STATUS" = {
+      response$can_undo <- length(.undo_stack) > 0
+      response$can_redo <- length(.redo_stack) > 0
+      response$undo_action <- if (length(.undo_stack) > 0) .undo_stack[[1]]$description else NULL
+      response$redo_action <- if (length(.redo_stack) > 0) .redo_stack[[1]]$description else NULL
+    },
+
+    "RESTORE_EMERGENCY_CHECKPOINT" = {
+      cfg_dir <- file.path(Sys.getenv("HOME"), ".config", "r-rad-studio", "autosave")
+      checkpoint_path <- file.path(cfg_dir, "checkpoint.rds")
+      if (!file.exists(checkpoint_path)) {
+        checkpoint_path <- file.path(tempdir(), "rrad_checkpoint.rds")
+      }
+
+      if (file.exists(checkpoint_path)) {
+        rrad_push_undo_checkpoint("Before Emergency Restore")
+        df <- readRDS(checkpoint_path)
+        assign(".active_data", df, envir = .GlobalEnv)
+        response$dataset_name <- attr(df, "dataset_name") %||% "Restored Dataset"
+        response$row_count <- nrow(df)
+        response$column_count <- ncol(df)
+        response$variables <- extract_variable_metadata(df)
+        response$can_undo <- length(.undo_stack) > 0
+        response$can_redo <- length(.redo_stack) > 0
+      } else {
+        response$status <- "error"
+        response$error <- "No emergency recovery checkpoint found on disk."
+      }
+    },
+
+    "CHECK_EMERGENCY_CHECKPOINT" = {
+      cfg_dir <- file.path(Sys.getenv("HOME"), ".config", "r-rad-studio", "autosave")
+      checkpoint_path <- file.path(cfg_dir, "checkpoint.rds")
+      if (file.exists(checkpoint_path)) {
+        info <- file.info(checkpoint_path)
+        response$exists <- TRUE
+        response$modified <- as.character(info$mtime)
+        response$size_bytes <- info$size
+      } else {
+        response$exists <- FALSE
+      }
+    },
+
     "LOAD_RAW_DATASET" = {
       rows <- args$rows
       vars <- args$variables
@@ -488,6 +660,9 @@ handle_request <- function(req) {
       }
       attr(df, "dataset_name") <- ds_name
       assign(".active_data", df, envir = .GlobalEnv)
+      .undo_stack <<- list()
+      .redo_stack <<- list()
+      rrad_write_atomic_checkpoint(df)
       response$dataset_name <- ds_name
       response$row_count <- nrow(df)
       response$column_count <- ncol(df)

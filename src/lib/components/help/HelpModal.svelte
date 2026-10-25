@@ -108,11 +108,13 @@
 
             <!-- Section 3 -->
             <section class="space-y-2">
-              <h2 class="text-base font-semibold text-indigo-400">3. Data Wrangling & Transformations</h2>
-              <p>Under the <span class="text-white font-medium">Data</span> menu:</p>
+              <h2 class="text-base font-semibold text-indigo-400">3. Spreadsheet Editing, Undo/Redo & Data Safety</h2>
+              <p>Under the <span class="text-white font-medium">Edit</span> menu and spreadsheet action bar:</p>
               <ul class="list-disc pl-5 space-y-1 text-xs">
+                <li><strong class="text-slate-200">Forgiving Undo & Redo:</strong> Press <code class="bg-slate-800 px-1 rounded font-mono text-indigo-300">Ctrl+Z</code> to undo or <code class="bg-slate-800 px-1 rounded font-mono text-indigo-300">Ctrl+Y</code> to redo up to 30 snapshot levels of data modifications.</li>
                 <li><strong class="text-slate-200">Insert Variable (Blank Column):</strong> Appends a new variable initialized with <code class="bg-slate-800 px-1 py-0.5 rounded text-amber-300">NA</code> values.</li>
-                <li><strong class="text-slate-200">Compute Variable...:</strong> Enter a target variable and an R expression (e.g. <code class="bg-slate-800 px-1 py-0.5 rounded text-amber-300">log(mpg) * 2</code> or <code class="bg-slate-800 px-1 py-0.5 rounded text-amber-300">ifelse(hp &gt; 150, 1, 0)</code>). Supports built-in statistical functions like <code class="text-indigo-300 font-mono">scale()</code>, <code class="text-indigo-300 font-mono">mean()</code>, and <code class="text-indigo-300 font-mono">round()</code>.</li>
+                <li><strong class="text-slate-200">Compute Variable...:</strong> Enter a target variable and an R expression (e.g. <code class="bg-slate-800 px-1 py-0.5 rounded text-amber-300">log(mpg) * 2</code> or <code class="bg-slate-800 px-1 py-0.5 rounded text-amber-300">ifelse(hp &gt; 150, 1, 0)</code>). Supports built-in functions like <code class="text-indigo-300 font-mono">scale()</code>, <code class="text-indigo-300 font-mono">mean()</code>, and <code class="text-indigo-300 font-mono">round()</code>.</li>
+                <li><strong class="text-slate-200">Hardware & Software Crash Protection:</strong> Every data operation is automatically and atomically committed to a durable checkpoint on disk. If a crash or power cut occurs, restore your data using <span class="text-emerald-400 font-medium">Edit &rarr; Restore from Emergency Checkpoint...</span>.</li>
               </ul>
             </section>
 

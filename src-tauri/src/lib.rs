@@ -65,7 +65,12 @@ pub fn run() {
             ipc_commands::insert_row,
             ipc_commands::delete_row,
             ipc_commands::batch_update_cells,
-            ipc_commands::find_replace
+            ipc_commands::find_replace,
+            ipc_commands::undo_action,
+            ipc_commands::redo_action,
+            ipc_commands::get_undo_status,
+            ipc_commands::restore_emergency_checkpoint,
+            ipc_commands::check_emergency_checkpoint
         ])
         .run(tauri::generate_context!())
         .expect("error while running R-RAD Studio application");

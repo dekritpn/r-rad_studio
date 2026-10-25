@@ -212,6 +212,7 @@
       appState.setDataset(meta);
       const slice: any = await invoke('get_data_page', { offset: appState.dataOffset, limit: appState.dataLimit });
       appState.setDataPage(slice.rows, slice.total_rows, slice.offset);
+      await appState.refreshUndoStatus();
       appState.showToast(`Added new blank column '${newVarName}'`);
       appState.setView('data');
     } catch (err) {
@@ -230,6 +231,7 @@
       appState.setDataset(meta);
       const slice: any = await invoke('get_data_page', { offset: appState.dataOffset, limit: appState.dataLimit });
       appState.setDataPage(slice.rows, slice.total_rows, slice.offset);
+      await appState.refreshUndoStatus();
       appState.daemonStatus = 'idle';
       appState.showToast(`Inserted new row at line ${pos}`);
     } catch (err) {
@@ -255,6 +257,7 @@
       const newOffset = Math.min(appState.dataOffset, Math.max(0, meta.row_count - 1));
       const slice: any = await invoke('get_data_page', { offset: newOffset, limit: appState.dataLimit });
       appState.setDataPage(slice.rows, slice.total_rows, slice.offset);
+      await appState.refreshUndoStatus();
       appState.daemonStatus = 'idle';
       appState.selectedRowIndex = null;
       appState.showToast(`Deleted row ${globalRow}`);
@@ -264,6 +267,31 @@
       appState.showToast(`Error deleting row: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       closeMenus();
+    }
+  }
+
+  async function handleUndo() {
+    closeMenus();
+    await appState.undo();
+  }
+
+  async function handleRedo() {
+    closeMenus();
+    await appState.redo();
+  }
+
+  async function handleEmergencyRestore() {
+    closeMenus();
+    const chk = await appState.checkEmergencyCheckpoint();
+    if (!chk.exists) {
+      alert('Tidak ditemukan file emergency checkpoint yang tersimpan.');
+      return;
+    }
+    const confirmed = confirm(
+      `Pulihkan data dari emergency checkpoint otomatis?\n\nWaktu snapshot: ${chk.timestamp || 'Tersedia'}\nLokasi: ${chk.path}\n\nSemua perubahan yang belum disimpan setelah checkpoint akan digantikan oleh checkpoint ini.`
+    );
+    if (confirmed) {
+      await appState.restoreEmergencyCheckpoint();
     }
   }
 </script>
@@ -396,8 +424,55 @@
         Edit
       </button>
       {#if activeMenu === 'edit'}
-        <div class="absolute top-full left-0 mt-1 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 divide-y divide-slate-800 text-xs">
-          <!-- Row Operations -->
+        <div class="absolute top-full left-0 mt-1 w-68 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 divide-y divide-slate-800 text-xs">
+          <!-- Undo / Redo Actions -->
+          <div class="py-1">
+            <button
+              class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center justify-between transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-100 cursor-pointer disabled:cursor-not-allowed"
+              onclick={handleUndo}
+              disabled={!appState.canUndo}
+            >
+              <span class="flex items-center gap-2">
+                <span>↶ Undo</span>
+                {#if appState.undoCount > 0}
+                  <span class="text-[10px] bg-indigo-900/80 text-indigo-300 px-1.5 py-0.5 rounded-full font-mono">{appState.undoCount}</span>
+                {/if}
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">Ctrl+Z</span>
+            </button>
+            <button
+              class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center justify-between transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-100 cursor-pointer disabled:cursor-not-allowed"
+              onclick={handleRedo}
+              disabled={!appState.canRedo}
+            >
+              <span class="flex items-center gap-2">
+                <span>↷ Redo</span>
+                {#if appState.redoCount > 0}
+                  <span class="text-[10px] bg-indigo-900/80 text-indigo-300 px-1.5 py-0.5 rounded-full font-mono">{appState.redoCount}</span>
+                {/if}
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">Ctrl+Y</span>
+            </button>
+          </div>
+
+          <!-- Variables & Data Transformations (Consolidated from Data Menu) -->
+          <div class="py-1">
+            <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Variables & Data</div>
+            <button
+              class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center gap-2 transition-colors"
+              onclick={insertBlankVariable}
+            >
+              <span>➕ Insert Variable (Blank Column)...</span>
+            </button>
+            <button
+              class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center gap-2 transition-colors"
+              onclick={() => { appState.isComputeDialogOpen = true; closeMenus(); }}
+            >
+              <span>🧮 Compute Variable...</span>
+            </button>
+          </div>
+
+          <!-- Spreadsheet Rows -->
           <div class="py-1">
             <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Spreadsheet Rows</div>
             <button
@@ -434,35 +509,17 @@
               <span class="text-[10px] text-slate-400 font-mono">Ctrl+H</span>
             </button>
           </div>
-        </div>
-      {/if}
-    </div>
 
-    <!-- DATA MENU -->
-    <div class="relative">
-      <button
-        class="px-2.5 py-1 rounded hover:bg-slate-800 transition-colors {activeMenu === 'data' ? 'bg-slate-800 text-white' : 'text-slate-300'}"
-        onclick={() => activeMenu = activeMenu === 'data' ? null : 'data'}
-      >
-        Data
-      </button>
-      {#if activeMenu === 'data'}
-        <div class="absolute top-full left-0 mt-1 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-50 divide-y divide-slate-800 text-xs">
+          <!-- Emergency Recovery -->
           <div class="py-1">
             <button
-              class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center gap-2 transition-colors"
-              onclick={insertBlankVariable}
+              class="w-full text-left px-3 py-1.5 text-emerald-400 hover:bg-emerald-600 hover:text-white flex items-center justify-between transition-colors"
+              onclick={handleEmergencyRestore}
+              title="Pulihkan dataset dari file emergency snapshot otomatis"
             >
-              <span>➕ Insert Variable (Blank Column)...</span>
-            </button>
-          </div>
-          <div class="py-1">
-            <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Transformations</div>
-            <button
-              class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center gap-2 transition-colors"
-              onclick={() => { appState.isComputeDialogOpen = true; closeMenus(); }}
-            >
-              <span>🧮 Compute Variable...</span>
+              <span class="flex items-center gap-1.5">
+                <span>🛡️ Restore from Emergency Checkpoint...</span>
+              </span>
             </button>
           </div>
         </div>

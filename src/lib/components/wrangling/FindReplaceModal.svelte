@@ -162,6 +162,7 @@
         limit: appState.dataLimit,
       });
       appState.setDataPage(slice.rows, slice.total_rows, slice.offset);
+      await appState.refreshUndoStatus();
 
       statusMessage = `Replaced at Row ${globalRow}, Variable '${colName}'`;
       statusType = 'success';
@@ -212,6 +213,7 @@
         limit: appState.dataLimit,
       });
       appState.setDataPage(slice.rows, slice.total_rows, slice.offset);
+      await appState.refreshUndoStatus();
       appState.daemonStatus = 'idle';
 
       statusMessage = `Done! Replaced ${count} occurrence${count === 1 ? '' : 's'}.`;
