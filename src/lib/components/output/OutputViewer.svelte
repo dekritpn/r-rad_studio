@@ -117,7 +117,7 @@
   }
 </script>
 
-<div class="flex flex-col h-full bg-slate-950 text-slate-100 select-none">
+<div class="flex flex-col h-full bg-slate-950 text-slate-100 select-none font-output-custom">
   <!-- Top Output Toolbar -->
   <div class="h-10 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-10">
     <div class="flex items-center gap-2">

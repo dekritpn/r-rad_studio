@@ -273,3 +273,80 @@ pub async fn save_file(
     let res = dialog.save_file().await;
     Ok(res.map(|f| f.path().to_string_lossy().to_string()))
 }
+
+#[tauri::command]
+pub async fn pick_folder(title: Option<String>) -> Result<Option<String>, String> {
+    let mut dialog = rfd::AsyncFileDialog::new();
+    if let Some(t) = title {
+        dialog = dialog.set_title(&t);
+    }
+    let res = dialog.pick_folder().await;
+    Ok(res.map(|f| f.path().to_string_lossy().to_string()))
+}
+
+pub fn get_preferences_path() -> std::path::PathBuf {
+    if let Ok(home) = std::env::var("HOME") {
+        std::path::PathBuf::from(home).join(".config/r-rad-studio/preferences.json")
+    } else {
+        std::path::PathBuf::from("preferences.json")
+    }
+}
+
+pub fn get_default_preferences() -> Value {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let default_output_dir = format!("{home}/Documents/R-RAD_Output");
+    let default_modules_dir = "/home/dpng/Projects/r_rad_studio/modules".to_string();
+
+    serde_json::json!({
+        "theme": "dark",
+        "font_family_ui": "Inter, system-ui, sans-serif",
+        "font_family_data": "Inter, system-ui, sans-serif",
+        "font_family_output": "Inter, system-ui, sans-serif",
+        "font_family_help": "Inter, system-ui, sans-serif",
+        "font_size_menu": 12,
+        "font_size_data": 12,
+        "font_size_output": 13,
+        "font_size_help": 12,
+        "modules_dir": default_modules_dir,
+        "output_dir": default_output_dir
+    })
+}
+
+#[tauri::command]
+pub async fn load_user_preferences() -> Result<Value, String> {
+    let config_path = get_preferences_path();
+    if config_path.exists() {
+        let content = std::fs::read_to_string(&config_path)
+            .map_err(|e| format!("Failed to read preferences: {e}"))?;
+        let val: Value = serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse preferences: {e}"))?;
+        Ok(val)
+    } else {
+        Ok(get_default_preferences())
+    }
+}
+
+#[tauri::command]
+pub async fn save_user_preferences(
+    state: State<'_, AppState>,
+    preferences: Value,
+) -> Result<(), String> {
+    let config_path = get_preferences_path();
+    if let Some(parent) = config_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let content = serde_json::to_string_pretty(&preferences)
+        .map_err(|e| format!("Failed to serialize preferences: {e}"))?;
+    std::fs::write(&config_path, content)
+        .map_err(|e| format!("Failed to write preferences: {e}"))?;
+
+    // If modules_dir was updated, update FormRegistry catalog_dir and reload
+    if let Some(modules_dir) = preferences.get("modules_dir").and_then(|v| v.as_str()) {
+        if !modules_dir.is_empty() {
+            state.form_registry.set_catalog_dir(std::path::PathBuf::from(modules_dir)).await;
+            let _ = state.form_registry.reload().await;
+        }
+    }
+
+    Ok(())
+}

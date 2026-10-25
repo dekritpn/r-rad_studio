@@ -21,7 +21,7 @@ pub struct MenuNode {
 }
 
 pub struct FormRegistry {
-    catalog_dir: PathBuf,
+    catalog_dir: Arc<RwLock<PathBuf>>,
     user_forms_dir: PathBuf,
     forms: Arc<RwLock<HashMap<String, Value>>>,
     menu_tree: Arc<RwLock<Vec<MenuNode>>>,
@@ -32,20 +32,30 @@ impl FormRegistry {
         let catalog_dir = find_catalog_dir();
         let user_forms_dir = get_user_forms_dir();
         Self {
-            catalog_dir,
+            catalog_dir: Arc::new(RwLock::new(catalog_dir)),
             user_forms_dir,
             forms: Arc::new(RwLock::new(HashMap::new())),
             menu_tree: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
+    pub async fn set_catalog_dir(&self, dir: PathBuf) {
+        *self.catalog_dir.write().await = dir;
+    }
+
+    pub async fn get_catalog_dir(&self) -> PathBuf {
+        self.catalog_dir.read().await.clone()
+    }
+
     pub async fn reload(&self) -> Result<(), String> {
         let mut loaded_forms = HashMap::new();
         let mut flat_items: Vec<(Vec<String>, String, bool)> = Vec::new();
 
+        let catalog = self.catalog_dir.read().await.clone();
+
         // 1. Scan shipped modules folder
-        if self.catalog_dir.exists() {
-            Self::scan_dir_recursive(&self.catalog_dir, &self.catalog_dir, false, &mut loaded_forms, &mut flat_items)?;
+        if catalog.exists() {
+            Self::scan_dir_recursive(&catalog, &catalog, false, &mut loaded_forms, &mut flat_items)?;
         }
 
         // 2. Scan user custom modules folder

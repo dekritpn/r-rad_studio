@@ -231,3 +231,36 @@ async fn test_project_file_save_and_open() {
     assert_eq!(meta.row_count, 2);
     assert_eq!(meta.column_count, 2);
 }
+
+#[tokio::test]
+async fn test_user_preferences_persistence() {
+    use r_rad_studio_lib::ipc_commands::{get_default_preferences, get_preferences_path};
+
+    let defaults = get_default_preferences();
+    assert!(!get_preferences_path().to_string_lossy().is_empty());
+    assert_eq!(defaults["theme"], "dark");
+    assert_eq!(defaults["font_size_menu"], 12);
+    assert_eq!(defaults["font_size_data"], 12);
+    assert_eq!(defaults["font_size_output"], 13);
+    assert_eq!(defaults["font_size_help"], 12);
+    assert!(defaults["modules_dir"].as_str().unwrap().contains("modules"));
+
+    // Test writing and reading back custom preferences
+    let mut custom = defaults.clone();
+    custom["theme"] = serde_json::json!("light");
+    custom["font_size_menu"] = serde_json::json!(14);
+    custom["font_family_ui"] = serde_json::json!("Roboto, sans-serif");
+
+    let temp_pref_file = tempfile::NamedTempFile::new().unwrap();
+    let pref_path = temp_pref_file.path().to_path_buf();
+
+    tokio::fs::write(&pref_path, serde_json::to_string_pretty(&custom).unwrap())
+        .await
+        .unwrap();
+
+    let content = tokio::fs::read_to_string(&pref_path).await.unwrap();
+    let loaded: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(loaded["theme"], "light");
+    assert_eq!(loaded["font_size_menu"], 14);
+    assert_eq!(loaded["font_family_ui"], "Roboto, sans-serif");
+}

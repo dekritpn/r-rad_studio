@@ -44,6 +44,17 @@ class AppStateManager {
   // Compute Variable Dialog
   isComputeDialogOpen = $state<boolean>(false);
 
+  // Preferences Dialog
+  isPreferencesOpen = $state<boolean>(false);
+
+  openPreferences() {
+    this.isPreferencesOpen = true;
+  }
+
+  closePreferences() {
+    this.isPreferencesOpen = false;
+  }
+
   // Help & About Modal
   isHelpModalOpen = $state<boolean>(false);
   helpModalTab = $state<'user' | 'rad' | 'about'>('user');

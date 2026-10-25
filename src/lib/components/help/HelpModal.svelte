@@ -68,7 +68,7 @@
       </div>
 
       <!-- Modal Body -->
-      <div class="flex-1 overflow-y-auto p-6 text-sm text-slate-300 leading-relaxed space-y-6">
+      <div class="flex-1 overflow-y-auto p-6 text-sm text-slate-300 leading-relaxed space-y-6 font-help-custom">
         {#if appState.helpModalTab === 'user'}
           <!-- USER GUIDE CONTENT -->
           <div class="space-y-6 max-w-3xl mx-auto">

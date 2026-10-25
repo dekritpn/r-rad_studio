@@ -27,6 +27,14 @@ pub fn run() {
         .setup(move |_app| {
             let registry_clone = Arc::clone(&form_registry);
             tauri::async_runtime::spawn(async move {
+                if let Ok(prefs) = ipc_commands::load_user_preferences().await {
+                    if let Some(m_dir) = prefs.get("modules_dir").and_then(|v| v.as_str()) {
+                        let path = std::path::PathBuf::from(m_dir);
+                        if path.exists() {
+                            registry_clone.set_catalog_dir(path).await;
+                        }
+                    }
+                }
                 let _ = registry_clone.reload().await;
             });
             Ok(())
@@ -49,7 +57,10 @@ pub fn run() {
             ipc_commands::save_project,
             ipc_commands::open_project,
             ipc_commands::pick_file,
-            ipc_commands::save_file
+            ipc_commands::save_file,
+            ipc_commands::pick_folder,
+            ipc_commands::load_user_preferences,
+            ipc_commands::save_user_preferences
         ])
         .run(tauri::generate_context!())
         .expect("error while running R-RAD Studio application");

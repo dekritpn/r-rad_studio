@@ -10,16 +10,24 @@
   import FormModal from './lib/components/runtime/FormModal.svelte';
   import ComputeVariableModal from './lib/components/wrangling/ComputeVariableModal.svelte';
   import HelpModal from './lib/components/help/HelpModal.svelte';
+  import PreferencesModal from './lib/components/preferences/PreferencesModal.svelte';
+  import { preferencesStore } from './lib/stores/preferencesStore.svelte';
   import { invoke } from '@tauri-apps/api/core';
 
   function handleGlobalKeyDown(e: KeyboardEvent) {
     if (e.key === 'F1') {
       e.preventDefault();
       appState.openHelp('user');
+    } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+      e.preventDefault();
+      appState.openPreferences();
     }
   }
 
   onMount(async () => {
+    // 0. Initialize persistent user preferences (Theme, Typography, Paths)
+    await preferencesStore.init();
+
     try {
       // 1. Handshake with R Daemon
       appState.daemonStatus = 'running';
@@ -69,6 +77,9 @@
 
   <!-- In-App Help & About Modal -->
   <HelpModal />
+
+  <!-- Application Preferences Modal -->
+  <PreferencesModal />
 
   <!-- Global Toast Notification -->
   {#if appState.toastMessage}

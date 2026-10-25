@@ -225,14 +225,19 @@
 
 <svelte:window onclick={closeMenus} />
 
-<div class="h-9 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-2 text-xs select-none z-50">
+<div class="h-9 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-2 text-xs select-none z-50 font-menu-custom">
   <!-- Left Side: Brand Icon & Classic Menus -->
   <div class="flex items-center gap-0.5" onclick={(e) => e.stopPropagation()}>
-    <!-- Application Brand: icon.png and Red R-RAD directly beside the menu bar -->
-    <div class="flex items-center gap-1.5 px-2 mr-1 select-none">
-      <img src="/icon.png" alt="R-RAD Studio Icon" class="w-5 h-5 rounded object-contain shadow-sm" />
+    <!-- Application Brand: icon.png and Red R-RAD directly beside the menu bar (Click opens About) -->
+    <button
+      type="button"
+      class="flex items-center gap-1.5 px-2 mr-1 select-none hover:bg-slate-800/80 rounded py-1 transition-all cursor-pointer group focus:outline-none"
+      onclick={() => { appState.openHelp('about'); closeMenus(); }}
+      title="About R-RAD Studio"
+    >
+      <img src="/icon.png" alt="R-RAD Studio Icon" class="w-5 h-5 rounded object-contain shadow-sm group-hover:scale-110 transition-transform" />
       <span class="font-black tracking-wider text-red-500 font-mono text-sm">R-RAD</span>
-    </div>
+    </button>
 
     <!-- FILE MENU -->
     <div class="relative">
@@ -318,6 +323,19 @@
             >
               <span>50,000 Rows (.sav)</span>
               <span class="text-[10px] text-amber-400 font-semibold">50k rows</span>
+            </button>
+          </div>
+
+          <!-- Application Preferences -->
+          <div class="py-1">
+            <button
+              class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center justify-between transition-colors"
+              onclick={() => { appState.openPreferences(); closeMenus(); }}
+            >
+              <span class="flex items-center gap-2">
+                <span>⚙️ Preferences...</span>
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">Ctrl+,</span>
             </button>
           </div>
         </div>

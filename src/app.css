@@ -7,6 +7,15 @@
 
 :root {
   color-scheme: dark;
+  --font-menu: Inter, system-ui, sans-serif;
+  --font-data: Inter, system-ui, sans-serif;
+  --font-output: Inter, system-ui, sans-serif;
+  --font-help: Inter, system-ui, sans-serif;
+
+  --size-menu: 12px;
+  --size-data: 12px;
+  --size-output: 13px;
+  --size-help: 12px;
 }
 
 body {
@@ -17,4 +26,82 @@ body {
   overflow: hidden;
   height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Typography Custom Classes dynamically bound to Preferences */
+.font-menu-custom {
+  font-family: var(--font-menu) !important;
+  font-size: var(--size-menu) !important;
+}
+
+.font-data-custom {
+  font-family: var(--font-data) !important;
+  font-size: var(--size-data) !important;
+}
+
+.font-output-custom {
+  font-family: var(--font-output) !important;
+  font-size: var(--size-output) !important;
+}
+
+.font-help-custom {
+  font-family: var(--font-help) !important;
+  font-size: var(--size-help) !important;
+}
+
+/* Light Mode Overrides */
+html.theme-light body,
+html.theme-light .bg-slate-950 {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.theme-light .bg-slate-900 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.theme-light .bg-slate-850 {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.theme-light .bg-slate-800 {
+  background-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+html.theme-light .border-slate-800,
+html.theme-light .border-slate-700 {
+  border-color: #cbd5e1 !important;
+}
+
+html.theme-light .text-slate-100,
+html.theme-light .text-white {
+  color: #0f172a !important;
+}
+
+html.theme-light .text-slate-200 {
+  color: #1e293b !important;
+}
+
+html.theme-light .text-slate-300,
+html.theme-light .text-slate-400 {
+  color: #475569 !important;
+}
+
+html.theme-light .hover\:bg-slate-800:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html.theme-light .hover\:bg-slate-700:hover {
+  background-color: #e2e8f0 !important;
+}
+
+html.theme-light input,
+html.theme-light select,
+html.theme-light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
 }

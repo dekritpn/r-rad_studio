@@ -117,7 +117,7 @@
   }
 </script>
 
-<div class="flex flex-col h-full bg-slate-900 text-slate-100 select-none">
+<div class="flex flex-col h-full bg-slate-900 text-slate-100 select-none font-data-custom">
   <!-- Grid Content Area -->
   <div class="flex-1 overflow-auto relative">
     {#if currentSubTab === 'data'}
