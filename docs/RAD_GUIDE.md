@@ -39,9 +39,9 @@ In R-RAD Studio:
 
 ---
 
-## 2. Directory Layout & Folder Hierarchy
+## 2. Directory Layout & Analyze Menu Hierarchy
 
-All statistical modules reside within the `modules/` directory (aliased as `forms-catalog/` for legacy compatibility):
+In R-RAD Studio, **the folder hierarchy inside the `modules/` directory directly dictates the structure of the `Analyze` menu**. This empowers users and module developers to organize their analytical tools however they like simply by arranging folders on disk.
 
 ```plaintext
 modules/
@@ -50,25 +50,68 @@ modules/
 │   └── crosstabs.rform.json
 ├── Compare Means/
 │   ├── independent-t-test.rform.json
-│   └── one-way-anova.rform.json
+│   ├── one-way-anova.rform.json
+│   └── Non-Parametric/
+│       ├── mann-whitney.rform.json
+│       └── kruskal-wallis.rform.json
 ├── Regression/
 │   ├── linear.rform.json
 │   └── binary-logistic.rform.json
 ├── Graphs/
 │   ├── histogram.rform.json
 │   └── scatterplot.rform.json
-└── Custom/                       # User-created or imported modules
-    └── your-module.rform.json
+└── quick-tool.rform.json          # Root-level module
 ```
 
-### Folder Hierarchy = Analyze Menu Structure:
-> **Core Principle:** The **Analyze** top-level menu automatically follows the exact directory hierarchy of the `modules/` folder.
-- **Folder Names Become Category Labels:** The name of each folder (or subfolder) automatically becomes the menu item / submenu label under **Analyze**.
-- **User Organization:** You can organize, create, rename, or nest folders however you like (e.g. `modules/Econometrics/Time Series/`, `modules/Non-Parametric/`).
-- **Flexible Naming:** 
-  - If you name a folder with spaces or uppercase letters (e.g. `Compare Means`, `My Custom Scripts`), that exact name becomes the menu label.
-  - If you name a folder with kebab-case or snake_case (e.g. `compare-means`), R-RAD Studio automatically converts it into Title Case (`Compare Means`).
-- **File Names:** Lowercase kebab-case matching the procedure with the extension `.rform.json` (e.g., `independent-t-test.rform.json`).
+---
+
+### How the Folder Hierarchy Maps to the Menu Bar
+
+```plaintext
+[ Menu Bar: Analyze ]
+  ├── Descriptives
+  │     ├── Frequencies...
+  │     └── Crosstabs...
+  ├── Compare Means
+  │     ├── Independent-Samples T Test...
+  │     ├── One-Way ANOVA...
+  │     └── Non-Parametric ▶
+  │           ├── Mann-Whitney U Test...
+  │           └── Kruskal-Wallis H Test...
+  ├── Regression
+  │     ├── Linear Regression...
+  │     └── Binary Logistic Regression...
+  ├── Graphs
+  │     ├── Histogram...
+  │     └── Scatterplot...
+  └── Quick Tool...               (placed directly in modules/)
+```
+
+### Key Mapping Rules:
+
+1. **Folder Names Become Menu & Submenu Labels:**
+   - Every directory level between `modules/` and your `.rform.json` file becomes a category or submenu in the **Analyze** menu.
+   - For example, `modules/Advanced Statistics/Survival Analysis/cox_model.rform.json` will automatically produce:
+     `Analyze` $\rightarrow$ `Advanced Statistics` $\rightarrow$ `Survival Analysis` $\rightarrow$ `Cox Model...`
+   - Nested subfolders automatically render as cascading flyout submenus (`▶`) when hovered.
+
+2. **Smart Casing & Custom Formatting:**
+   - **User-Defined Names:** If you name your folder with spaces or capital letters (e.g., `Compare Means`, `Time Series`, `My Lab Models`), the exact folder name is preserved as the menu label.
+   - **Kebab/Snake-Case Auto-Formatting:** If a folder is named in lowercase with hyphens or underscores (e.g., `compare-means` or `binary_logistic`), R-RAD Studio automatically converts it into Title Case (`Compare Means` or `Binary Logistic`).
+
+3. **Leaf Item Label Resolution:**
+   The label of the actual clickable menu item (the dialog trigger) is determined in the following order of precedence:
+   1. `json["menu_label"]` (if explicitly provided in the schema).
+   2. The last element of `json["menu_path"]` (for backward compatibility).
+   3. `json["window"]["title"]` (with `...` appended if not already present).
+   4. The file stem formatted into Title Case (e.g. `linear-model.rform.json` $\rightarrow$ `Linear Model...`).
+
+4. **Zero Configuration Organization:**
+   - You do **not** need to edit the internal JSON file to change where a tool appears in the menu.
+   - Simply create a new folder, drag and drop `.rform.json` files between folders, or rename folders in your file manager. The application hot-reloads and updates the menu bar immediately.
+
+5. **Root-Level Modules:**
+   - Modules placed directly inside `modules/` (without any subfolder) appear directly at the top level of the **Analyze** menu dropdown.
 
 ---
 
@@ -102,7 +145,8 @@ Every form file must be valid JSON conforming to the `rform.json` specification:
 | :--- | :--- | :--- |
 | `id` | `string` | Unique reverse-DNS identifier (e.g., `stat.regression.linear`). |
 | `version` | `string` | Semantic version string (e.g., `1.0.0`). |
-| `menu_path` | `string[]` | Hierarchy in top menu bar. First element is usually `"Analyze"`. |
+| `menu_path` | `string[]` | *(Optional)* Default menu path. When stored in `modules/`, the physical directory structure dynamically defines the menu hierarchy. |
+| `menu_label` | `string` | *(Optional)* Explicit display label in the menu (e.g., `"Independent-Samples T Test..."`). |
 | `window` | `object` | Modal dimensions: `title`, `width` (pixels), and `height` (pixels). |
 | `layout` | `Widget[]` | Array of UI widgets positioned on the 12-column grid. |
 | `sub_dialogs` | `SubDialog[]` | Array of child modal dialog definitions (e.g., Options, Plots). |

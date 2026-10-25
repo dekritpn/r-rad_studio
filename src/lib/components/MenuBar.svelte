@@ -463,15 +463,6 @@
       {/if}
     </div>
 
-    <!-- RAD DESIGNER MENU -->
-    <div class="relative">
-      <button
-        class="px-2.5 py-1 rounded hover:bg-slate-800 transition-colors text-amber-300 font-medium flex items-center gap-1"
-        onclick={() => { appState.setView('designer'); closeMenus(); }}
-      >
-        <span>🔧 RAD Designer</span>
-      </button>
-    </div>
 
     <!-- HELP MENU -->
     <div class="relative">

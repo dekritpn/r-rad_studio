@@ -171,6 +171,9 @@
   "sub_dialogs": [ ... ],
   "r_template": "local(&#123; ... &#125;)"
 &#125;</pre>
+              <p class="text-xs text-slate-400">
+                <strong class="text-indigo-300">Folder Hierarchy Mapping:</strong> The <code class="text-white font-mono">Analyze</code> menu path is dynamically determined by the folder hierarchy inside <code class="text-indigo-300 font-mono">modules/</code>. Folder and subfolder names automatically become menu category and submenu labels.
+              </p>
             </section>
 
             <!-- Section 2 -->
