@@ -85,6 +85,7 @@
               <p>R-RAD Studio provides lossless support for key analytical formats via the <span class="text-white font-medium">File</span> menu:</p>
               <ul class="list-disc pl-5 space-y-1 text-xs">
                 <li><strong class="text-slate-200">SPSS (.sav):</strong> Full metadata extraction including variable labels, measurement levels (Scale, Ordinal, Nominal), and value dictionaries.</li>
+                <li><strong class="text-slate-200">OpenDocument (.ods):</strong> Native ODF spreadsheet import and export via readODS.</li>
                 <li><strong class="text-slate-200">Comma Separated Values (.csv):</strong> Standard delimited data.</li>
                 <li><strong class="text-slate-200">Excel (.xlsx, .xls):</strong> Modern multi-sheet spreadsheets.</li>
                 <li><strong class="text-slate-200">Sample Datasets:</strong> Quickly load <code class="bg-slate-800 px-1 py-0.5 rounded text-amber-300">mtcars</code>, <code class="bg-slate-800 px-1 py-0.5 rounded text-amber-300">iris</code>, or high-volume 50,000-row benchmarks directly from the menu.</li>

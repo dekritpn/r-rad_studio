@@ -113,6 +113,13 @@ load_dataset_from_file <- function(file_path) {
     "rds" = {
       readRDS(file_path)
     },
+    "ods" = {
+      if (requireNamespace("readODS", quietly = TRUE)) {
+        readODS::read_ods(file_path)
+      } else {
+        stop("readODS package required to read .ods files")
+      }
+    },
     stop(paste("Unsupported file format:", ext))
   )
 
@@ -121,7 +128,7 @@ load_dataset_from_file <- function(file_path) {
   df
 }
 
-# Helper to export dataset to file (CSV, SAV, XLSX)
+# Helper to export dataset to file (CSV, SAV, XLSX, ODS)
 export_dataset_to_file <- function(file_path, format = NULL) {
   df <- .GlobalEnv$.active_data
   fmt <- tolower(if (!is.null(format) && nzchar(format)) format else tools::file_ext(file_path))
@@ -141,6 +148,13 @@ export_dataset_to_file <- function(file_path, format = NULL) {
         writexl::write_xlsx(df, path = file_path)
       } else {
         stop("writexl package required to export .xlsx files")
+      }
+    },
+    "ods" = {
+      if (requireNamespace("readODS", quietly = TRUE)) {
+        readODS::write_ods(df, path = file_path)
+      } else {
+        stop("readODS package required to export .ods files")
       }
     },
     stop(paste("Unsupported export format:", fmt))

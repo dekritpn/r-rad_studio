@@ -42,14 +42,15 @@ When you launch R-RAD Studio, the application automatically initializes the back
 
 ### Supported File Formats
 You can open, import, and export datasets across all major analytical formats via the **File** menu:
-- **SPSS Dataset (`.sav`):** Lossless import using `haven::read_sav`, including variable labels, measurement levels, and value label dictionaries.
+- **SPSS Dataset (`.sav`):** Lossless import and export using `haven`, including variable labels, measurement levels, and value label dictionaries.
+- **OpenDocument Spreadsheet (`.ods`):** Open standard spreadsheets parsed and exported via `readODS`.
 - **Comma Separated Values (`.csv`):** Standard delimited text tables parsed via `read.csv`.
-- **Microsoft Excel (`.xlsx`, `.xls`):** Multi-column spreadsheets parsed via `readxl::read_excel`.
-- **R Data Files (`.rds`):** Native R data frames.
+- **Microsoft Excel (`.xlsx`, `.xls`):** Multi-column spreadsheets parsed via `readxl` and exported via `writexl`.
+- **R Data Files (`.rds`):** Native R serialized data frames.
 
 ### Opening Datasets
 1. Click **File $\rightarrow$ Open / Import Dataset...** in the top menu bar.
-2. Choose your `.sav`, `.csv`, `.xlsx`, or `.rds` file in the native file picker.
+2. Choose your `.sav`, `.ods`, `.csv`, `.xlsx`, or `.rds` file in the native file picker.
 3. The dataset will load into R's `.active_data` environment and immediately display in the **Dual Data Grid**.
 
 ### Built-in Sample Datasets

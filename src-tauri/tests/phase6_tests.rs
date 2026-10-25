@@ -157,6 +157,29 @@ async fn test_export_and_import_csv_sav_xlsx() {
     let xlsx_meta: DatasetMetadata = serde_json::from_value(xlsx_load).unwrap();
     assert_eq!(xlsx_meta.row_count, 32);
     assert_eq!(xlsx_meta.column_count, 11);
+
+    // 4. Export ODS (OpenDocument Spreadsheet) and import back
+    let ods_file = tempfile::Builder::new().suffix(".ods").tempfile().unwrap();
+    let ods_path = ods_file.path().to_str().unwrap().to_string();
+    daemon
+        .send_request(
+            "EXPORT_DATASET",
+            serde_json::json!({ "file_path": ods_path, "format": "ods" }),
+        )
+        .await
+        .expect("Export ODS failed");
+    assert!(PathBuf::from(&ods_path).exists());
+
+    let ods_load = daemon
+        .send_request(
+            "LOAD_DATASET",
+            serde_json::json!({ "file_path": ods_path }),
+        )
+        .await
+        .expect("Load exported ODS failed");
+    let ods_meta: DatasetMetadata = serde_json::from_value(ods_load).unwrap();
+    assert_eq!(ods_meta.row_count, 32);
+    assert_eq!(ods_meta.column_count, 11);
 }
 
 #[tokio::test]

@@ -56,8 +56,8 @@
     try {
       const selectedPath: string | null = await invoke('pick_file', {
         title: 'Open / Import Dataset',
-        filterName: 'Dataset Files (*.sav, *.csv, *.xlsx, *.xls, *.rds)',
-        extensions: ['sav', 'csv', 'xlsx', 'xls', 'rds'],
+        filterName: 'Dataset Files (*.sav, *.csv, *.xlsx, *.xls, *.rds, *.ods)',
+        extensions: ['sav', 'csv', 'xlsx', 'xls', 'rds', 'ods'],
       });
       if (selectedPath) {
         await loadSampleDataset(selectedPath);
@@ -71,7 +71,7 @@
     }
   }
 
-  async function exportDatasetAs(format: 'csv' | 'sav' | 'xlsx') {
+  async function exportDatasetAs(format: 'csv' | 'sav' | 'xlsx' | 'ods') {
     if (!appState.activeDataset) {
       appState.showToast('No active dataset to export');
       closeMenus();
@@ -347,7 +347,7 @@
               onclick={openImportDatasetDialog}
             >
               <span>📥 Open / Import Dataset...</span>
-              <span class="text-[9px] text-slate-400 font-mono">SAV/CSV/XLSX</span>
+              <span class="text-[9px] text-slate-400 font-mono">SAV/ODS/XLSX</span>
             </button>
             <div class="px-3 pt-2 pb-1 text-[10px] uppercase font-semibold text-slate-500">Export Dataset As:</div>
             <button
@@ -370,6 +370,13 @@
             >
               <span>Microsoft Excel (.xlsx)</span>
               <span class="text-[10px] text-sky-400 font-mono">XLSX</span>
+            </button>
+            <button
+              class="w-full text-left px-4 py-1 text-slate-200 hover:bg-indigo-600 hover:text-white flex items-center justify-between text-[11px] transition-colors"
+              onclick={() => exportDatasetAs('ods')}
+            >
+              <span>OpenDocument Spreadsheet (.ods)</span>
+              <span class="text-[10px] text-orange-400 font-mono">ODS</span>
             </button>
           </div>
 
