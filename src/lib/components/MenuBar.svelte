@@ -397,7 +397,7 @@
       </button>
       {#if activeMenu === 'analyze'}
         <div class="absolute top-full left-0 mt-1 w-72 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-50 divide-y divide-slate-800">
-          <!-- Render dynamic categories -->
+          <!-- Render dynamic categories following modules/ folder hierarchy -->
           {#each appState.menuTree.find(n => n.label === 'Analyze')?.children || [] as cat}
             <div class="py-1">
               {#if cat.children && cat.children.length > 0}
@@ -405,18 +405,52 @@
                   {cat.label}
                 </div>
                 {#each cat.children as item}
-                  <button
-                    class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center justify-between text-xs transition-colors"
-                    onclick={() => item.form_id && openFormDialog(item.form_id)}
-                  >
-                    <span class="truncate">{item.label}</span>
-                    {#if item.is_custom}
-                      <span class="text-[9px] bg-indigo-950 text-indigo-300 px-1 py-0.5 rounded border border-indigo-700">Custom</span>
-                    {/if}
-                  </button>
+                  {#if item.children && item.children.length > 0}
+                    <!-- Subfolder / Submenu Flyout -->
+                    <div class="relative group/sub">
+                      <button
+                        type="button"
+                        class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center justify-between text-xs transition-colors"
+                      >
+                        <span class="truncate">{item.label}</span>
+                        <span class="text-[9px] text-slate-400 group-hover/sub:text-white ml-2 font-mono">▶</span>
+                      </button>
+                      <div class="hidden group-hover/sub:block absolute left-full top-0 ml-1 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50">
+                        <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-400 tracking-wider border-b border-slate-800 mb-1">
+                          {item.label}
+                        </div>
+                        {#each item.children as subItem}
+                          <button
+                            type="button"
+                            class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center justify-between text-xs transition-colors"
+                            onclick={() => subItem.form_id && openFormDialog(subItem.form_id)}
+                          >
+                            <span class="truncate">{subItem.label}</span>
+                            {#if subItem.is_custom}
+                              <span class="text-[9px] bg-indigo-950 text-indigo-300 px-1 py-0.5 rounded border border-indigo-700">Custom</span>
+                            {/if}
+                          </button>
+                        {/each}
+                      </div>
+                    </div>
+                  {:else}
+                    <!-- Direct Form Item in Folder -->
+                    <button
+                      type="button"
+                      class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center justify-between text-xs transition-colors"
+                      onclick={() => item.form_id && openFormDialog(item.form_id)}
+                    >
+                      <span class="truncate">{item.label}</span>
+                      {#if item.is_custom}
+                        <span class="text-[9px] bg-indigo-950 text-indigo-300 px-1 py-0.5 rounded border border-indigo-700">Custom</span>
+                      {/if}
+                    </button>
+                  {/if}
                 {/each}
               {:else if cat.form_id}
+                <!-- Root Module Item in modules/ -->
                 <button
+                  type="button"
                   class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white text-xs transition-colors"
                   onclick={() => cat.form_id && openFormDialog(cat.form_id)}
                 >

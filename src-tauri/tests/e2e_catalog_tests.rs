@@ -169,3 +169,26 @@ async fn test_e2e_rad_designer_save_and_hot_reload() {
     let custom = analyze.children.iter().find(|n| n.label == "Custom");
     assert!(custom.is_some(), "Custom submenu should be created");
 }
+
+#[tokio::test]
+async fn test_analyze_menu_follows_modules_folder_hierarchy() {
+    let registry = FormRegistry::new();
+    registry.reload().await.expect("Failed to reload registry");
+
+    let menu = registry.get_menu().await;
+    let analyze = menu.iter().find(|n| n.label == "Analyze").expect("Missing Analyze menu");
+
+    // Shipped folders in modules/ are: compare-means, descriptives, graphs, regression
+    // Folder names become the menu labels formatted in Title Case:
+    let child_labels: Vec<_> = analyze.children.iter().map(|n| n.label.as_str()).collect();
+    assert!(child_labels.contains(&"Compare Means"), "Expected 'Compare Means' folder label in menu");
+    assert!(child_labels.contains(&"Descriptives"), "Expected 'Descriptives' folder label in menu");
+    assert!(child_labels.contains(&"Graphs"), "Expected 'Graphs' folder label in menu");
+    assert!(child_labels.contains(&"Regression"), "Expected 'Regression' folder label in menu");
+
+    // Verify sub-items inside Compare Means folder
+    let compare_means = analyze.children.iter().find(|n| n.label == "Compare Means").unwrap();
+    let comp_items: Vec<_> = compare_means.children.iter().map(|n| n.label.as_str()).collect();
+    assert!(comp_items.iter().any(|&l| l.contains("Independent-Samples T Test")), "Missing T-Test in Compare Means");
+    assert!(comp_items.iter().any(|&l| l.contains("One-Way ANOVA")), "Missing ANOVA in Compare Means");
+}

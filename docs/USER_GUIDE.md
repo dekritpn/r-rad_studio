@@ -118,7 +118,10 @@ To derive new variables or compute statistical transformations, use the **Comput
 
 ## 5. Running Statistical Analyses
 
-R-RAD Studio ships with an extensible catalog of classic statistical procedures under the **Analyze** menu:
+R-RAD Studio ships with an extensible catalog of classic statistical procedures under the **Analyze** menu.
+
+> **Dynamic Folder Organization:** The **Analyze** menu dynamically reflects the exact folder hierarchy in your `modules/` directory. Folder names automatically become the menu category labels, allowing you to organize, categorize, and nest your analytical modules however you prefer.
+
 - **Descriptives:**
   - *Frequencies:* Categorical counts, percentages, cumulative stats, and bar charts.
   - *Crosstabs:* 2-way contingency tables with Pearson $\chi^2$ and Fisher's Exact tests.
@@ -128,6 +131,8 @@ R-RAD Studio ships with an extensible catalog of classic statistical procedures 
 - **Regression:**
   - *Linear Regression:* Ordinary Least Squares (OLS) with model summaries, coefficients, ANOVA table, and diagnostic residual plots.
   - *Binary Logistic Regression:* Generalized linear modeling for dichotomous outcomes.
+- **Graphs:**
+  - *Histogram & Scatterplot:* Scalable ggplot2 vector plots.
 
 ### Dialog Navigation & Selection
 Every statistical dialog is rendered dynamically from an open schema (`.rform.json`):

@@ -1,5 +1,6 @@
 // src-tauri/src/form_registry.rs
-// Discovers, parses, and hot-reloads .rform.json statistical dialog schemas
+// Discovers, parses, and hot-reloads .rform.json statistical dialog schemas.
+// The Analyze menu follows the directory hierarchy of the modules/ folder.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -42,14 +43,14 @@ impl FormRegistry {
         let mut loaded_forms = HashMap::new();
         let mut flat_items: Vec<(Vec<String>, String, bool)> = Vec::new();
 
-        // 1. Scan shipped catalog
+        // 1. Scan shipped modules folder
         if self.catalog_dir.exists() {
-            Self::scan_dir_recursive(&self.catalog_dir, false, &mut loaded_forms, &mut flat_items)?;
+            Self::scan_dir_recursive(&self.catalog_dir, &self.catalog_dir, false, &mut loaded_forms, &mut flat_items)?;
         }
 
-        // 2. Scan user custom forms
+        // 2. Scan user custom modules folder
         if self.user_forms_dir.exists() {
-            Self::scan_dir_recursive(&self.user_forms_dir, true, &mut loaded_forms, &mut flat_items)?;
+            Self::scan_dir_recursive(&self.user_forms_dir, &self.user_forms_dir, true, &mut loaded_forms, &mut flat_items)?;
         }
 
         // Build hierarchical menu tree
@@ -63,31 +64,44 @@ impl FormRegistry {
     }
 
     fn scan_dir_recursive(
-        dir: &Path,
+        base_dir: &Path,
+        current_dir: &Path,
         is_custom: bool,
         forms_map: &mut HashMap<String, Value>,
         flat_items: &mut Vec<(Vec<String>, String, bool)>,
     ) -> Result<(), String> {
-        let entries = std::fs::read_dir(dir)
-            .map_err(|e| format!("Failed to read directory {}: {e}", dir.display()))?;
+        let entries = std::fs::read_dir(current_dir)
+            .map_err(|e| format!("Failed to read directory {}: {e}", current_dir.display()))?;
 
-        for entry in entries.flatten() {
-            let path = entry.path();
+        // Sort paths alphabetically so menu items and categories are consistently ordered
+        let mut paths: Vec<_> = entries.flatten().map(|e| e.path()).collect();
+        paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+
+        for path in paths {
             if path.is_dir() {
-                Self::scan_dir_recursive(&path, is_custom, forms_map, flat_items)?;
+                Self::scan_dir_recursive(base_dir, &path, is_custom, forms_map, flat_items)?;
             } else if path.file_name().and_then(|n| n.to_str()).map_or(false, |n| n.ends_with(".rform.json")) {
                 if let Ok(content) = std::fs::read_to_string(&path) {
                     if let Ok(json_val) = serde_json::from_str::<Value>(&content) {
                         if let Some(id) = json_val["id"].as_str() {
                             let form_id = id.to_string();
-                            let menu_path: Vec<String> = json_val["menu_path"]
-                                .as_array()
-                                .map(|arr| {
-                                    arr.iter()
-                                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                                        .collect()
-                                })
-                                .unwrap_or_else(|| vec!["Analyze".to_string(), "Custom".to_string(), form_id.clone()]);
+
+                            // The Analyze menu follows the folder hierarchy inside the modules directory.
+                            // The name of each folder becomes the menu category/submenu label.
+                            let mut menu_path = vec!["Analyze".to_string()];
+
+                            if let Ok(rel_path) = path.parent().unwrap_or(base_dir).strip_prefix(base_dir) {
+                                for comp in rel_path.components() {
+                                    let comp_str = comp.as_os_str().to_string_lossy();
+                                    if !comp_str.is_empty() {
+                                        menu_path.push(format_folder_name(&comp_str));
+                                    }
+                                }
+                            }
+
+                            // Determine leaf menu item label
+                            let leaf_label = get_leaf_label(&json_val, &path);
+                            menu_path.push(leaf_label);
 
                             flat_items.push((menu_path, form_id.clone(), is_custom));
                             forms_map.insert(form_id, json_val);
@@ -112,12 +126,24 @@ impl FormRegistry {
             .as_str()
             .ok_or_else(|| "Form schema must have an 'id' field".to_string())?;
 
-        // Ensure user forms dir exists
-        std::fs::create_dir_all(&self.user_forms_dir)
-            .map_err(|e| format!("Failed to create user forms directory: {e}"))?;
+        // Determine destination folder based on category (default: "Custom")
+        let category = form_val["menu_path"]
+            .as_array()
+            .and_then(|arr| {
+                if arr.len() >= 2 {
+                    arr.get(1).and_then(|v| v.as_str())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or("Custom");
+
+        let target_dir = self.user_forms_dir.join(category);
+        std::fs::create_dir_all(&target_dir)
+            .map_err(|e| format!("Failed to create user modules directory: {e}"))?;
 
         let safe_filename = format!("{}.rform.json", id.replace(['/', '\\', ' '], "_"));
-        let target_path = self.user_forms_dir.join(safe_filename);
+        let target_path = target_dir.join(safe_filename);
 
         let pretty_json = serde_json::to_string_pretty(&form_val)
             .map_err(|e| format!("Failed to serialize form JSON: {e}"))?;
@@ -132,8 +158,54 @@ impl FormRegistry {
     }
 }
 
+/// Converts a directory name into a human-readable menu label.
+/// If the directory name already contains spaces or uppercase letters (e.g. "Compare Means" or "T-Tests"),
+/// it is preserved as the user named it.
+/// If it is kebab-case or snake_case (e.g. "compare-means" or "binary_logistic"),
+/// it is converted into Title Case.
+pub fn format_folder_name(name: &str) -> String {
+    if name.contains(' ') || name.chars().any(|c| c.is_uppercase()) {
+        return name.to_string();
+    }
+    name.split(|c| c == '-' || c == '_')
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Determines the leaf menu item label from form schema or file name.
+fn get_leaf_label(json_val: &Value, path: &Path) -> String {
+    if let Some(lbl) = json_val["menu_label"].as_str() {
+        return lbl.to_string();
+    }
+    if let Some(last_in_path) = json_val["menu_path"].as_array().and_then(|arr| arr.last()).and_then(|v| v.as_str()) {
+        return last_in_path.to_string();
+    }
+    if let Some(title) = json_val["window"]["title"].as_str() {
+        if title.ends_with("...") {
+            return title.to_string();
+        } else {
+            return format!("{title}...");
+        }
+    }
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Module");
+    let clean = stem.strip_suffix(".rform").unwrap_or(stem);
+    let title_cased = format_folder_name(clean);
+    format!("{title_cased}...")
+}
+
 fn find_catalog_dir() -> PathBuf {
     let candidates = [
+        PathBuf::from("modules"),
+        PathBuf::from("../modules"),
+        PathBuf::from("/home/dpng/Projects/r_rad_studio/modules"),
         PathBuf::from("forms-catalog"),
         PathBuf::from("../forms-catalog"),
         PathBuf::from("/home/dpng/Projects/r_rad_studio/forms-catalog"),
@@ -144,14 +216,14 @@ fn find_catalog_dir() -> PathBuf {
             return c.clone();
         }
     }
-    PathBuf::from("forms-catalog")
+    PathBuf::from("modules")
 }
 
 fn get_user_forms_dir() -> PathBuf {
     if let Ok(home) = std::env::var("HOME") {
-        PathBuf::from(home).join(".config/r-rad-studio/forms")
+        PathBuf::from(home).join(".config/r-rad-studio/modules")
     } else {
-        PathBuf::from("user-forms")
+        PathBuf::from("user-modules")
     }
 }
 

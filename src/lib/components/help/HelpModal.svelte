@@ -155,7 +155,7 @@
 
             <!-- Core Tenet -->
             <div class="p-3 bg-indigo-950/40 border border-indigo-700/50 rounded-lg text-xs text-indigo-200">
-              <strong>Core Architecture:</strong> 100% of all statistical dialogs in R-RAD Studio are declarative JSON form schemas. Adding or saving a file in <code class="font-mono text-indigo-300">forms-catalog/</code> automatically hot-reloads the top menu bar instantly.
+              <strong>Core Architecture:</strong> 100% of all statistical dialogs in R-RAD Studio are declarative JSON form schemas. The <strong>Analyze</strong> menu automatically follows the folder hierarchy of the <code class="font-mono text-indigo-300">modules/</code> folder, where folder names automatically become menu category and submenu labels.
             </div>
 
             <!-- Section 1 -->

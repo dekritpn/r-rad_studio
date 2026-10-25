@@ -39,28 +39,36 @@ In R-RAD Studio:
 
 ---
 
-## 2. Directory Layout & File Conventions
+## 2. Directory Layout & Folder Hierarchy
 
-All statistical forms reside within the `forms-catalog/` directory in the repository:
+All statistical modules reside within the `modules/` directory (aliased as `forms-catalog/` for legacy compatibility):
 
 ```plaintext
-forms-catalog/
-├── descriptives/
+modules/
+├── Descriptives/
 │   ├── frequencies.rform.json
 │   └── crosstabs.rform.json
-├── compare-means/
+├── Compare Means/
 │   ├── independent-t-test.rform.json
 │   └── one-way-anova.rform.json
-├── regression/
+├── Regression/
 │   ├── linear.rform.json
 │   └── binary-logistic.rform.json
-└── custom/                   # User-created or imported modules
+├── Graphs/
+│   ├── histogram.rform.json
+│   └── scatterplot.rform.json
+└── Custom/                       # User-created or imported modules
     └── your-module.rform.json
 ```
 
-### Naming Conventions:
-- **Directory Names:** Use kebab-case categorizing the statistical family (e.g., `descriptives`, `non-parametric`, `survival`).
-- **File Names:** Lowercase kebab-case matching the procedure with the extension `.rform.json` (e.g., `mann-whitney.rform.json`, `cox-regression.rform.json`).
+### Folder Hierarchy = Analyze Menu Structure:
+> **Core Principle:** The **Analyze** top-level menu automatically follows the exact directory hierarchy of the `modules/` folder.
+- **Folder Names Become Category Labels:** The name of each folder (or subfolder) automatically becomes the menu item / submenu label under **Analyze**.
+- **User Organization:** You can organize, create, rename, or nest folders however you like (e.g. `modules/Econometrics/Time Series/`, `modules/Non-Parametric/`).
+- **Flexible Naming:** 
+  - If you name a folder with spaces or uppercase letters (e.g. `Compare Means`, `My Custom Scripts`), that exact name becomes the menu label.
+  - If you name a folder with kebab-case or snake_case (e.g. `compare-means`), R-RAD Studio automatically converts it into Title Case (`Compare Means`).
+- **File Names:** Lowercase kebab-case matching the procedure with the extension `.rform.json` (e.g., `independent-t-test.rform.json`).
 
 ---
 
