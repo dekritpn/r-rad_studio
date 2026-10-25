@@ -11,6 +11,7 @@
   import ComputeVariableModal from './lib/components/wrangling/ComputeVariableModal.svelte';
   import HelpModal from './lib/components/help/HelpModal.svelte';
   import PreferencesModal from './lib/components/preferences/PreferencesModal.svelte';
+  import FindReplaceModal from './lib/components/wrangling/FindReplaceModal.svelte';
   import { preferencesStore } from './lib/stores/preferencesStore.svelte';
   import { invoke } from '@tauri-apps/api/core';
 
@@ -21,6 +22,12 @@
     } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
       e.preventDefault();
       appState.openPreferences();
+    } else if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+      e.preventDefault();
+      appState.openFindReplace('find');
+    } else if ((e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'H')) {
+      e.preventDefault();
+      appState.openFindReplace('replace');
     }
   }
 
@@ -80,6 +87,9 @@
 
   <!-- Application Preferences Modal -->
   <PreferencesModal />
+
+  <!-- Find & Replace Modal -->
+  <FindReplaceModal />
 
   <!-- Global Toast Notification -->
   {#if appState.toastMessage}

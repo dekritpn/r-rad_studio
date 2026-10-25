@@ -60,7 +60,12 @@ pub fn run() {
             ipc_commands::save_file,
             ipc_commands::pick_folder,
             ipc_commands::load_user_preferences,
-            ipc_commands::save_user_preferences
+            ipc_commands::save_user_preferences,
+            ipc_commands::update_cell,
+            ipc_commands::insert_row,
+            ipc_commands::delete_row,
+            ipc_commands::batch_update_cells,
+            ipc_commands::find_replace
         ])
         .run(tauri::generate_context!())
         .expect("error while running R-RAD Studio application");

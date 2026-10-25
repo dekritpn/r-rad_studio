@@ -79,3 +79,12 @@ pub struct DataSlice {
     pub offset: usize,
     pub limit: usize,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FindReplaceResult {
+    pub replaced_count: usize,
+    pub dataset_name: String,
+    pub row_count: usize,
+    pub column_count: usize,
+    pub variables: Vec<VariableMeta>,
+}

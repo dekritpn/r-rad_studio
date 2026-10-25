@@ -55,6 +55,24 @@ class AppStateManager {
     this.isPreferencesOpen = false;
   }
 
+  // Find & Replace Dialog
+  isFindReplaceOpen = $state<boolean>(false);
+  findReplaceInitialTab = $state<'find' | 'replace'>('find');
+
+  openFindReplace(tab: 'find' | 'replace' = 'find') {
+    this.findReplaceInitialTab = tab;
+    this.isFindReplaceOpen = true;
+  }
+
+  closeFindReplace() {
+    this.isFindReplaceOpen = false;
+  }
+
+  // Data View Selection State
+  selectedRowIndex = $state<number | null>(null);
+  activeDataCell = $state<{ row: number; colName: string } | null>(null);
+  findHighlightQuery = $state<string | null>(null);
+
   // Help & About Modal
   isHelpModalOpen = $state<boolean>(false);
   helpModalTab = $state<'user' | 'rad' | 'about'>('user');

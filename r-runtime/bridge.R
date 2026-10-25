@@ -227,6 +227,208 @@ handle_request <- function(req) {
       response$variables <- extract_variable_metadata(df)
     },
 
+    "UPDATE_CELL" = {
+      row_idx <- as.integer(args$row_index)
+      col_name <- as.character(args$col_name)
+      val <- args$value
+      df <- .GlobalEnv$.active_data
+
+      if (!is.na(row_idx) && row_idx >= 1 && row_idx <= nrow(df) && col_name %in% names(df)) {
+        if (is.null(val) || (is.character(val) && !nzchar(trimws(val)))) {
+          df[row_idx, col_name] <- NA
+        } else if (is.numeric(df[[col_name]])) {
+          num_val <- suppressWarnings(as.numeric(val))
+          df[row_idx, col_name] <- if (is.na(num_val)) NA else num_val
+        } else if (is.factor(df[[col_name]])) {
+          str_val <- as.character(val)
+          if (!(str_val %in% levels(df[[col_name]]))) {
+            levels(df[[col_name]]) <- c(levels(df[[col_name]]), str_val)
+          }
+          df[row_idx, col_name] <- str_val
+        } else {
+          df[row_idx, col_name] <- as.character(val)
+        }
+        assign(".active_data", df, envir = .GlobalEnv)
+      }
+      response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
+      response$row_count <- nrow(df)
+      response$column_count <- ncol(df)
+      response$variables <- extract_variable_metadata(df)
+    },
+
+    "INSERT_ROW" = {
+      df <- .GlobalEnv$.active_data
+      n_rows <- nrow(df)
+      pos <- as.integer(args$position %||% (n_rows + 1))
+      if (is.na(pos) || pos < 1) pos <- 1
+      if (pos > n_rows + 1) pos <- n_rows + 1
+
+      new_row <- as.data.frame(lapply(df, function(col) {
+        if (is.numeric(col)) NA_real_
+        else if (is.factor(col)) factor(NA, levels = levels(col))
+        else NA_character_
+      }), stringsAsFactors = FALSE)
+      names(new_row) <- names(df)
+
+      if (n_rows == 0) {
+        df <- new_row
+      } else if (pos == 1) {
+        df <- rbind(new_row, df)
+      } else if (pos > n_rows) {
+        df <- rbind(df, new_row)
+      } else {
+        df <- rbind(df[1:(pos - 1), , drop = FALSE], new_row, df[pos:n_rows, , drop = FALSE])
+      }
+      rownames(df) <- NULL
+      assign(".active_data", df, envir = .GlobalEnv)
+      response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
+      response$row_count <- nrow(df)
+      response$column_count <- ncol(df)
+      response$variables <- extract_variable_metadata(df)
+    },
+
+    "DELETE_ROW" = {
+      df <- .GlobalEnv$.active_data
+      row_idx <- as.integer(args$row_indices %||% args$row_index)
+      row_idx <- row_idx[!is.na(row_idx) & row_idx >= 1 & row_idx <= nrow(df)]
+      if (length(row_idx) > 0) {
+        df <- df[-row_idx, , drop = FALSE]
+        rownames(df) <- NULL
+        assign(".active_data", df, envir = .GlobalEnv)
+      }
+      response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
+      response$row_count <- nrow(df)
+      response$column_count <- ncol(df)
+      response$variables <- extract_variable_metadata(df)
+    },
+
+    "BATCH_UPDATE_CELLS" = {
+      start_row <- as.integer(args$start_row %||% 1)
+      start_col_name <- as.character(args$start_col %||% "")
+      matrix_data <- args$matrix %||% list()
+      df <- .GlobalEnv$.active_data
+
+      if (length(matrix_data) > 0) {
+        col_names <- names(df)
+        start_col_idx <- match(start_col_name, col_names)
+        if (is.na(start_col_idx)) start_col_idx <- 1
+
+        num_paste_rows <- length(matrix_data)
+        needed_rows <- start_row + num_paste_rows - 1
+
+        if (needed_rows > nrow(df)) {
+          extra_count <- needed_rows - nrow(df)
+          extra_df <- as.data.frame(lapply(df, function(col) {
+            if (is.numeric(col)) rep(NA_real_, extra_count)
+            else if (is.factor(col)) factor(rep(NA, extra_count), levels = levels(col))
+            else rep(NA_character_, extra_count)
+          }), stringsAsFactors = FALSE)
+          names(extra_df) <- names(df)
+          df <- rbind(df, extra_df)
+          rownames(df) <- NULL
+        }
+
+        for (r in seq_len(num_paste_rows)) {
+          row_vals <- matrix_data[[r]]
+          curr_r <- start_row + r - 1
+          if (is.list(row_vals) || is.vector(row_vals)) {
+            for (c in seq_along(row_vals)) {
+              curr_c <- start_col_idx + c - 1
+              if (curr_c <= ncol(df)) {
+                c_name <- col_names[curr_c]
+                val <- row_vals[[c]]
+                if (is.null(val) || (is.character(val) && !nzchar(trimws(val)))) {
+                  df[curr_r, c_name] <- NA
+                } else if (is.numeric(df[[c_name]])) {
+                  num_val <- suppressWarnings(as.numeric(val))
+                  df[curr_r, c_name] <- if (is.na(num_val)) NA else num_val
+                } else if (is.factor(df[[c_name]])) {
+                  str_val <- as.character(val)
+                  if (!(str_val %in% levels(df[[c_name]]))) {
+                    levels(df[[c_name]]) <- c(levels(df[[c_name]]), str_val)
+                  }
+                  df[curr_r, c_name] <- str_val
+                } else {
+                  df[curr_r, c_name] <- as.character(val)
+                }
+              }
+            }
+          }
+        }
+        assign(".active_data", df, envir = .GlobalEnv)
+      }
+      response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
+      response$row_count <- nrow(df)
+      response$column_count <- ncol(df)
+      response$variables <- extract_variable_metadata(df)
+    },
+
+    "FIND_REPLACE" = {
+      find_text <- as.character(args$find_text %||% "")
+      replace_text <- as.character(args$replace_text %||% "")
+      col_name <- args$col_name
+      match_entire <- as.logical(args$match_entire_cell %||% TRUE)
+      match_case <- as.logical(args$match_case %||% FALSE)
+      use_regex <- as.logical(args$use_regex %||% FALSE)
+
+      df <- .GlobalEnv$.active_data
+      target_cols <- if (is.null(col_name) || col_name == "all" || !nzchar(col_name)) {
+        names(df)
+      } else {
+        intersect(col_name, names(df))
+      }
+
+      total_replaced <- 0
+
+      if (nzchar(find_text) && length(target_cols) > 0) {
+        pat <- if (use_regex) {
+          if (match_entire) paste0("^", find_text, "$") else find_text
+        } else {
+          if (match_entire) paste0("^\\Q", find_text, "\\E$") else paste0("\\Q", find_text, "\\E")
+        }
+
+        for (c_name in target_cols) {
+          col_vals <- df[[c_name]]
+          col_str <- as.character(col_vals)
+          matches <- grepl(pat, col_str, ignore.case = !match_case, perl = TRUE)
+          matches[is.na(col_vals)] <- FALSE
+
+          if (any(matches)) {
+            n_matches <- sum(matches)
+            total_replaced <- total_replaced + n_matches
+
+            new_str <- if (match_entire) {
+              rep(replace_text, n_matches)
+            } else {
+              gsub(pat, replace_text, col_str[matches], ignore.case = !match_case, perl = TRUE)
+            }
+
+            if (is.numeric(col_vals)) {
+              num_new <- suppressWarnings(as.numeric(new_str))
+              df[matches, c_name] <- num_new
+            } else if (is.factor(col_vals)) {
+              uniq_new <- unique(new_str)
+              for (u in uniq_new) {
+                if (!(u %in% levels(df[[c_name]]))) {
+                  levels(df[[c_name]]) <- c(levels(df[[c_name]]), u)
+                }
+              }
+              df[matches, c_name] <- new_str
+            } else {
+              df[matches, c_name] <- new_str
+            }
+          }
+        }
+        assign(".active_data", df, envir = .GlobalEnv)
+      }
+
+      response$replaced_count <- total_replaced
+      response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
+      response$row_count <- nrow(df)
+      response$column_count <- ncol(df)
+      response$variables <- extract_variable_metadata(df)
+    },
+
     "COMPUTE_VARIABLE" = {
       target_var <- trimws(args$target_var)
       expr_str <- args$expression

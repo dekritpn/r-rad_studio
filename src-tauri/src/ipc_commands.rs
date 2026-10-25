@@ -5,7 +5,7 @@ use std::sync::Arc;
 use serde_json::Value;
 use tauri::State;
 
-use crate::data_bridge::{AnalysisResult, ComputeResult, DataSlice, DatasetMetadata, OutputBlock, VariableMeta};
+use crate::data_bridge::{AnalysisResult, ComputeResult, DataSlice, DatasetMetadata, FindReplaceResult, OutputBlock, VariableMeta};
 use crate::form_registry::{FormRegistry, MenuNode};
 use crate::r_daemon::RDaemon;
 
@@ -175,6 +175,120 @@ pub async fn compute_variable(
         .unwrap_or_default();
 
     Ok(ComputeResult { dataset, blocks })
+}
+
+#[tauri::command]
+pub async fn update_cell(
+    state: State<'_, AppState>,
+    row_index: usize,
+    col_name: String,
+    value: Value,
+) -> Result<DatasetMetadata, String> {
+    let res = state
+        .r_daemon
+        .send_request(
+            "UPDATE_CELL",
+            serde_json::json!({
+                "row_index": row_index,
+                "col_name": col_name,
+                "value": value
+            }),
+        )
+        .await?;
+
+    let meta: DatasetMetadata = serde_json::from_value(res)
+        .map_err(|e| format!("Failed to parse dataset metadata after update_cell: {e}"))?;
+    Ok(meta)
+}
+
+#[tauri::command]
+pub async fn insert_row(
+    state: State<'_, AppState>,
+    position: Option<usize>,
+) -> Result<DatasetMetadata, String> {
+    let res = state
+        .r_daemon
+        .send_request(
+            "INSERT_ROW",
+            serde_json::json!({ "position": position }),
+        )
+        .await?;
+
+    let meta: DatasetMetadata = serde_json::from_value(res)
+        .map_err(|e| format!("Failed to parse dataset metadata after insert_row: {e}"))?;
+    Ok(meta)
+}
+
+#[tauri::command]
+pub async fn delete_row(
+    state: State<'_, AppState>,
+    row_index: usize,
+) -> Result<DatasetMetadata, String> {
+    let res = state
+        .r_daemon
+        .send_request(
+            "DELETE_ROW",
+            serde_json::json!({ "row_index": row_index }),
+        )
+        .await?;
+
+    let meta: DatasetMetadata = serde_json::from_value(res)
+        .map_err(|e| format!("Failed to parse dataset metadata after delete_row: {e}"))?;
+    Ok(meta)
+}
+
+#[tauri::command]
+pub async fn batch_update_cells(
+    state: State<'_, AppState>,
+    start_row: usize,
+    start_col: String,
+    matrix: Vec<Vec<Value>>,
+) -> Result<DatasetMetadata, String> {
+    let res = state
+        .r_daemon
+        .send_request(
+            "BATCH_UPDATE_CELLS",
+            serde_json::json!({
+                "start_row": start_row,
+                "start_col": start_col,
+                "matrix": matrix
+            }),
+        )
+        .await?;
+
+    let meta: DatasetMetadata = serde_json::from_value(res)
+        .map_err(|e| format!("Failed to parse dataset metadata after batch_update_cells: {e}"))?;
+    Ok(meta)
+}
+
+#[tauri::command]
+pub async fn find_replace(
+    state: State<'_, AppState>,
+    find_text: String,
+    replace_text: String,
+    col_name: Option<String>,
+    match_entire_cell: Option<bool>,
+    match_case: Option<bool>,
+    use_regex: Option<bool>,
+) -> Result<FindReplaceResult, String> {
+    let res = state
+        .r_daemon
+        .send_request(
+            "FIND_REPLACE",
+            serde_json::json!({
+                "find_text": find_text,
+                "replace_text": replace_text,
+                "col_name": col_name,
+                "match_entire_cell": match_entire_cell,
+                "match_case": match_case,
+                "use_regex": use_regex
+            }),
+        )
+        .await?;
+
+    let result: FindReplaceResult = serde_json::from_value(res)
+        .map_err(|e| format!("Failed to parse find_replace result: {e}"))?;
+    Ok(result)
 }
 
 #[tauri::command]

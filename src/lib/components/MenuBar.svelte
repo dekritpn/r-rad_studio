@@ -221,6 +221,51 @@
       closeMenus();
     }
   }
+
+  async function insertNewRow() {
+    try {
+      appState.daemonStatus = 'running';
+      const pos = appState.selectedRowIndex !== null ? appState.dataOffset + appState.selectedRowIndex + 1 : appState.totalRows + 1;
+      const meta: any = await invoke('insert_row', { position: pos });
+      appState.setDataset(meta);
+      const slice: any = await invoke('get_data_page', { offset: appState.dataOffset, limit: appState.dataLimit });
+      appState.setDataPage(slice.rows, slice.total_rows, slice.offset);
+      appState.daemonStatus = 'idle';
+      appState.showToast(`Inserted new row at line ${pos}`);
+    } catch (err) {
+      console.error('Failed to insert row:', err);
+      appState.daemonStatus = 'error';
+      appState.showToast(`Error inserting row: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      closeMenus();
+    }
+  }
+
+  async function deleteSelectedRow() {
+    if (appState.selectedRowIndex === null || !appState.activeDataset) {
+      appState.showToast('Please select a row first by clicking its row number');
+      closeMenus();
+      return;
+    }
+    const globalRow = appState.dataOffset + appState.selectedRowIndex + 1;
+    try {
+      appState.daemonStatus = 'running';
+      const meta: any = await invoke('delete_row', { rowIndex: globalRow });
+      appState.setDataset(meta);
+      const newOffset = Math.min(appState.dataOffset, Math.max(0, meta.row_count - 1));
+      const slice: any = await invoke('get_data_page', { offset: newOffset, limit: appState.dataLimit });
+      appState.setDataPage(slice.rows, slice.total_rows, slice.offset);
+      appState.daemonStatus = 'idle';
+      appState.selectedRowIndex = null;
+      appState.showToast(`Deleted row ${globalRow}`);
+    } catch (err) {
+      console.error('Failed to delete row:', err);
+      appState.daemonStatus = 'error';
+      appState.showToast(`Error deleting row: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      closeMenus();
+    }
+  }
 </script>
 
 <svelte:window onclick={closeMenus} />
@@ -336,6 +381,57 @@
                 <span>⚙️ Preferences...</span>
               </span>
               <span class="text-[10px] text-slate-400 font-mono">Ctrl+,</span>
+            </button>
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    <!-- EDIT MENU -->
+    <div class="relative">
+      <button
+        class="px-2.5 py-1 rounded hover:bg-slate-800 transition-colors {activeMenu === 'edit' ? 'bg-slate-800 text-white' : 'text-slate-300'}"
+        onclick={() => activeMenu = activeMenu === 'edit' ? null : 'edit'}
+      >
+        Edit
+      </button>
+      {#if activeMenu === 'edit'}
+        <div class="absolute top-full left-0 mt-1 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl py-1 z-50 divide-y divide-slate-800 text-xs">
+          <!-- Row Operations -->
+          <div class="py-1">
+            <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Spreadsheet Rows</div>
+            <button
+              class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center justify-between transition-colors"
+              onclick={insertNewRow}
+            >
+              <span>➕ Insert Row (Case)</span>
+            </button>
+            <button
+              class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-rose-600 hover:text-white flex items-center justify-between transition-colors disabled:opacity-50"
+              onclick={deleteSelectedRow}
+              disabled={appState.selectedRowIndex === null}
+            >
+              <span>🗑️ Delete Selected Row</span>
+              <span class="text-[10px] text-slate-400 font-mono">Del</span>
+            </button>
+          </div>
+
+          <!-- Search & Replace -->
+          <div class="py-1">
+            <div class="px-3 py-1 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Search & Replace</div>
+            <button
+              class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center justify-between transition-colors"
+              onclick={() => { appState.openFindReplace('find'); closeMenus(); }}
+            >
+              <span>🔍 Find...</span>
+              <span class="text-[10px] text-slate-400 font-mono">Ctrl+F</span>
+            </button>
+            <button
+              class="w-full text-left px-3 py-1.5 text-slate-100 hover:bg-indigo-600 hover:text-white flex items-center justify-between transition-colors"
+              onclick={() => { appState.openFindReplace('replace'); closeMenus(); }}
+            >
+              <span>🔄 Replace...</span>
+              <span class="text-[10px] text-slate-400 font-mono">Ctrl+H</span>
             </button>
           </div>
         </div>

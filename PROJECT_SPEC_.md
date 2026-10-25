@@ -14,6 +14,7 @@
 4. **Reproducible Transparency:** Every GUI action generates clean, human-readable R syntax (`tidyverse` / `broom` / `gt` preferred) that is logged alongside the visual output and can be exported as a standalone `.R` or `.qmd` script.
 5. **Open Project & Multi-Format Interoperability:** Seamless opening, importing, and exporting to CSV, SPSS (`.sav`), and Excel (`.xlsx`). Entire workspace state (active data, variable dictionary, syntax log, and rendered outputs) can be preserved in an open, fully documented JSON project specification (`.rrad`).
 6. **Interactive Data Wrangling & Transformations:** Users can directly manipulate the data schema (renaming variables, adding blank columns, and deriving new columns via formula expressions) with immediate bidirectional synchronization with the underlying R runtime.
+7. **Spreadsheet-Style Grid Manipulation & Find/Replace:** In-place cell editing, arbitrary row insertion/deletion, tab-separated clipboard interoperability (Excel/Google Sheets copy-paste), and a dedicated Find & Replace dialog with scope and precision matching filters.
 
 ---
 
@@ -294,12 +295,15 @@ Agents must execute this build sequentially by phase. Do not advance to Phase $N
   1. Build the **Data View** (virtualized canvas grid supporting 100k+ rows via paginated Arrow/IPC slices) and **Variable View** (editable metadata table for Name, Type, Width, Decimals, Label, Values, Missing, Measure).
   2. Implement **Multi-Format Data I/O**: Open and import `.csv`, `.sav`, and `.xlsx` files; export active dataset to `.csv`, `.sav`, and `.xlsx`.
   3. Implement **Data Schema Mutation**: Inline variable name editing in Variable View, Add Blank Column, and **Transform $\rightarrow$ Compute Variable...** formula evaluator.
-  4. Implement **Open Project File (`.rrad`)**: Complete workspace save/open (active data, variable dictionary, syntax log, and full output stream).
-  5. Build the **Output Viewer**: a split-pane component with a left-hand collapsible Document Outline tree and a right-hand sandboxed HTML/SVG canvas (iframe or Shadow DOM with clean academic CSS styling for tables).
-  6. Add export handlers on every output card (Copy HTML table to clipboard for Word/Excel, Save Plot as SVG/PNG, Export entire Output Log as standalone `.html`).
+  4. Implement **Spreadsheet-Style Grid Operations**: Inline data cell editing in Data View (double-click/F2), row insertion and deletion (context menu & toolbar), and tab-separated (TSV) clipboard copy & paste interoperable with Microsoft Excel / Google Sheets.
+  5. Implement **Find & Replace**: Dedicated modal dialog (`Ctrl+F` / `Ctrl+H`) with target variable scoping, "Match entire cell contents" (safe default), "Match case", and optional Regular Expression (PCRE) support.
+  6. Implement **Open Project File (`.rrad`)**: Complete workspace save/open (active data, variable dictionary, syntax log, and full output stream).
+  7. Build the **Output Viewer**: a split-pane component with a left-hand collapsible Document Outline tree and a right-hand sandboxed HTML/SVG canvas (iframe or Shadow DOM with clean academic CSS styling for tables).
+  8. Add export handlers on every output card (Copy HTML table to clipboard for Word/Excel, Save Plot as SVG/PNG, Export entire Output Log as standalone `.html`).
 * **Verification Gate 2:**
   * Editing a variable label, name, or measurement level in "Variable View" immediately updates R's underlying `.active_data` and reflects in "Data View" column headers and tooltips.
   * Adding a blank column or formula-computed column updates both frontend grid and R session without desynchronization.
+  * Modifying cells, inserting rows, and deleting rows synchronously mutates the R session dataset; Find & Replace correctly replaces occurrences across targeted or all columns and updates the grid.
   * Saving and reopening a `.rrad` project file fully restores the active dataset and all previous output cards (tables and SVG charts).
   * Importing and exporting `.csv`, `.sav`, and `.xlsx` files passes roundtrip verification.
 

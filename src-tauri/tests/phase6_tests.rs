@@ -264,3 +264,85 @@ async fn test_user_preferences_persistence() {
     assert_eq!(loaded["font_size_menu"], 14);
     assert_eq!(loaded["font_family_ui"], "Roboto, sans-serif");
 }
+
+#[tokio::test]
+async fn test_spreadsheet_operations_and_find_replace() {
+    let daemon = get_test_daemon();
+    daemon.ensure_started().await.expect("Failed to start daemon");
+
+    // 1. Load mtcars
+    daemon
+        .send_request("LOAD_DATASET", serde_json::json!({ "file_path": "mtcars" }))
+        .await
+        .expect("Load mtcars failed");
+
+    // 2. Insert row
+    let ins_res = daemon
+        .send_request("INSERT_ROW", serde_json::json!({ "position": 1 }))
+        .await
+        .expect("Insert row failed");
+    let meta_ins: DatasetMetadata = serde_json::from_value(ins_res).unwrap();
+    assert_eq!(meta_ins.row_count, 33);
+
+    // 3. Update cell at row 1, col mpg
+    let upd_res = daemon
+        .send_request(
+            "UPDATE_CELL",
+            serde_json::json!({
+                "row_index": 1,
+                "col_name": "mpg",
+                "value": 99.9
+            }),
+        )
+        .await
+        .expect("Update cell failed");
+    let meta_upd: DatasetMetadata = serde_json::from_value(upd_res).unwrap();
+    assert_eq!(meta_upd.row_count, 33);
+
+    // Verify cell value via GET_DATA_PAGE
+    let page_res = daemon
+        .send_request(
+            "GET_DATA_PAGE",
+            serde_json::json!({ "offset": 0, "limit": 1 }),
+        )
+        .await
+        .expect("Get data page failed");
+    let rows = page_res["rows"].as_array().unwrap();
+    assert_eq!(rows[0]["mpg"], 99.9);
+
+    // 4. Find and replace 99.9 -> 88.8 in column mpg
+    let fr_res = daemon
+        .send_request(
+            "FIND_REPLACE",
+            serde_json::json!({
+                "find_text": "99.9",
+                "replace_text": "88.8",
+                "col_name": "mpg",
+                "match_entire_cell": true,
+                "match_case": false,
+                "use_regex": false
+            }),
+        )
+        .await
+        .expect("Find and replace failed");
+    assert_eq!(fr_res["replaced_count"], 1);
+
+    // Verify replacement via GET_DATA_PAGE
+    let page_res2 = daemon
+        .send_request(
+            "GET_DATA_PAGE",
+            serde_json::json!({ "offset": 0, "limit": 1 }),
+        )
+        .await
+        .expect("Get data page failed");
+    let rows2 = page_res2["rows"].as_array().unwrap();
+    assert_eq!(rows2[0]["mpg"], 88.8);
+
+    // 5. Delete row 1
+    let del_res = daemon
+        .send_request("DELETE_ROW", serde_json::json!({ "row_index": 1 }))
+        .await
+        .expect("Delete row failed");
+    let meta_del: DatasetMetadata = serde_json::from_value(del_res).unwrap();
+    assert_eq!(meta_del.row_count, 32);
+}
