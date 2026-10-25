@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/Rust-100%25%20Safe-orange?logo=rust&logoColor=white" alt="100% Safe Rust" />
   <img src="https://img.shields.io/badge/Svelte-5%20Runes-FF3E00?logo=svelte&logoColor=white" alt="Svelte 5" />
   <img src="https://img.shields.io/badge/R-4.x%20Persistent-276DC3?logo=r&logoColor=white" alt="R Statistical Engine" />
-  <img src="https://img.shields.io/badge/License-MIT%20%2F%20Open%20Source-green" alt="License" />
+  <img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="License: GPL-3.0" />
 </p>
 
 ---
@@ -127,8 +127,8 @@ We are actively looking for contributors to expand our module catalog across:
 ### Running Locally in Development Mode
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/r_rad_studio.git
-cd r_rad_studio
+git clone https://github.com/dekritpn/r-rad_studio.git
+cd r-rad_studio
 
 # Install frontend dependencies
 npm install
@@ -155,4 +155,4 @@ npm run tauri build
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE). Join us in making statistical computing transparent, beautiful, and accessible to everyone!
+This project is licensed under the [GNU General Public License v3.0](LICENSE). Join us in making statistical computing transparent, beautiful, and accessible to everyone!

@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "R Rapid Application Development & Statistical GUI"
 authors = ["R-RAD Studio Team"]
 edition = "2024"
+license = "GPL-3.0-or-later"
 
 [lib]
 name = "r_rad_studio_lib"
