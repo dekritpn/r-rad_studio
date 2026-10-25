@@ -26,9 +26,7 @@
       <!-- Modal Header -->
       <div class="px-5 py-3.5 border-b border-slate-800 bg-slate-950 flex items-center justify-between select-none">
         <div class="flex items-center gap-3">
-          <div class="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center text-indigo-400 font-bold text-sm">
-            R
-          </div>
+          <img src="/icon.png" alt="R-RAD Studio" class="w-7 h-7 rounded-lg shadow-sm object-contain" />
           <div>
             <h2 class="text-sm font-semibold text-white tracking-wide">Help & Reference</h2>
             <p class="text-[11px] text-slate-400">Documentation, Guides, and System Information</p>
@@ -213,11 +211,9 @@
           <!-- ABOUT DIALOG CONTENT -->
           <div class="space-y-6 max-w-2xl mx-auto py-2">
             <div class="text-center space-y-2">
-              <div class="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 items-center justify-center text-white font-extrabold text-2xl shadow-xl shadow-indigo-500/20 mb-1">
-                R
-              </div>
-              <h1 class="text-2xl font-bold text-white tracking-tight">R-RAD Studio</h1>
-              <p class="text-xs font-medium text-indigo-400 font-mono">Version 0.1.0 • Release Preview</p>
+              <img src="/icon.png" alt="R-RAD Studio" class="w-16 h-16 rounded-2xl shadow-xl shadow-red-500/10 mx-auto mb-2 object-contain" />
+              <h1 class="text-2xl font-bold text-white tracking-tight"><span class="text-red-500 font-mono font-black">R-RAD</span> Studio</h1>
+              <p class="text-xs font-medium text-slate-400 font-mono">Version 0.1.0 • Release Preview</p>
               <p class="text-xs text-slate-400 max-w-md mx-auto">
                 R Rapid Application Development & Modern Statistical GUI combining classic SPSS-style workflows with the reproducible power of R.
               </p>
