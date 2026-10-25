@@ -226,8 +226,14 @@
 <svelte:window onclick={closeMenus} />
 
 <div class="h-9 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-2 text-xs select-none z-50">
-  <!-- Left Side: Classic Menus -->
+  <!-- Left Side: Brand Icon & Classic Menus -->
   <div class="flex items-center gap-0.5" onclick={(e) => e.stopPropagation()}>
+    <!-- Application Brand: icon.png and Red R-RAD directly beside the menu bar -->
+    <div class="flex items-center gap-1.5 px-2 mr-1 select-none">
+      <img src="/icon.png" alt="R-RAD Studio Icon" class="w-5 h-5 rounded object-contain shadow-sm" />
+      <span class="font-black tracking-wider text-red-500 font-mono text-sm">R-RAD</span>
+    </div>
+
     <!-- FILE MENU -->
     <div class="relative">
       <button
@@ -542,12 +548,6 @@
         <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
         <span class="text-slate-300">R Ready</span>
       {/if}
-    </div>
-
-    <!-- Top Right Corner: R-RAD (in red) with icon.png beside it -->
-    <div class="flex items-center gap-1.5 pl-2.5 border-l border-slate-800">
-      <span class="font-black tracking-wider text-red-500 font-mono text-sm select-none drop-shadow-sm">R-RAD</span>
-      <img src="/icon.png" alt="R-RAD Studio Icon" class="w-5 h-5 rounded object-contain shadow-sm" />
     </div>
   </div>
 </div>
