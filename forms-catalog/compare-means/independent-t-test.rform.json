@@ -1,0 +1,60 @@
+{
+  "$schema": "https://r-rad-studio.local/schemas/v1/rform.json",
+  "id": "stat.compare_means.ind_t_test",
+  "version": "1.0.0",
+  "menu_path": ["Analyze", "Compare Means", "Independent-Samples T Test..."],
+  "window": { "title": "Independent-Samples T Test", "width": 640, "height": 460 },
+  "layout": [
+    {
+      "id": "src_vars",
+      "type": "VariableSourceList",
+      "grid": { "x": 1, "y": 1, "w": 5, "h": 10 },
+      "filter_types": ["scale", "ordinal", "nominal"]
+    },
+    {
+      "id": "test_vars",
+      "type": "VariableTargetSlot",
+      "label": "Test Variable(s):",
+      "grid": { "x": 6, "y": 1, "w": 7, "h": 5 },
+      "accepts": { "types": ["scale"], "multiple": true, "required": true }
+    },
+    {
+      "id": "group_var",
+      "type": "VariableTargetSlot",
+      "label": "Grouping Variable:",
+      "grid": { "x": 6, "y": 6, "w": 7, "h": 2 },
+      "accepts": { "types": ["nominal", "ordinal"], "multiple": false, "required": true }
+    },
+    {
+      "id": "chk_welch",
+      "type": "Checkbox",
+      "label": "Assume equal variances (Student's t)",
+      "grid": { "x": 6, "y": 8, "w": 7, "h": 1 },
+      "default": false
+    },
+    {
+      "id": "btn_options",
+      "type": "SubDialogButton",
+      "label": "Options...",
+      "sub_dialog_id": "btn_options",
+      "grid": { "x": 6, "y": 9, "w": 7, "h": 1 }
+    }
+  ],
+  "sub_dialogs": [
+    {
+      "id": "btn_options",
+      "label": "Options...",
+      "layout": [
+        {
+          "id": "conf_level",
+          "type": "NumericInput",
+          "label": "Confidence Interval Percentage (%):",
+          "default": 95,
+          "min": 1,
+          "max": 99.9
+        }
+      ]
+    }
+  ],
+  "r_template": "local({\n  {{#each test_vars}}\n  res <- t.test({{escapeR this}} ~ {{escapeR ../group_var}}, data = .active_data, var.equal = {{../chk_welch}}, conf.level = {{../sub_dialogs.btn_options.conf_level}} / 100)\n  rrad_emit_table(broom::tidy(res), title = paste('Independent T-Test:', '{{this}}', 'by', '{{../group_var}}'))\n  {{/each}}\n})"
+}

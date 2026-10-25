@@ -1,0 +1,37 @@
+{
+  "$schema": "https://r-rad-studio.local/schemas/v1/rform.json",
+  "id": "stat.compare_means.one_way_anova",
+  "version": "1.0.0",
+  "menu_path": ["Analyze", "Compare Means", "One-Way ANOVA..."],
+  "window": { "title": "One-Way ANOVA", "width": 640, "height": 460 },
+  "layout": [
+    {
+      "id": "src_vars",
+      "type": "VariableSourceList",
+      "grid": { "x": 1, "y": 1, "w": 5, "h": 10 },
+      "filter_types": ["scale", "ordinal", "nominal"]
+    },
+    {
+      "id": "dep_vars",
+      "type": "VariableTargetSlot",
+      "label": "Dependent List:",
+      "grid": { "x": 6, "y": 1, "w": 7, "h": 5 },
+      "accepts": { "types": ["scale"], "multiple": true, "required": true }
+    },
+    {
+      "id": "factor_var",
+      "type": "VariableTargetSlot",
+      "label": "Factor:",
+      "grid": { "x": 6, "y": 6, "w": 7, "h": 2 },
+      "accepts": { "types": ["nominal", "ordinal"], "multiple": false, "required": true }
+    },
+    {
+      "id": "chk_tukey",
+      "type": "Checkbox",
+      "label": "Compute Tukey HSD Post-Hoc Tests",
+      "grid": { "x": 6, "y": 8, "w": 7, "h": 1 },
+      "default": true
+    }
+  ],
+  "r_template": "local({\n  fac <- as.factor(.active_data[[ '{{factor_var}}' ]])\n  {{#each dep_vars}}\n  fit <- aov(.active_data[[ '{{this}}' ]] ~ fac)\n  rrad_emit_table(broom::tidy(fit), title = paste('ANOVA Table:', '{{this}}', 'by', '{{../factor_var}}'))\n  if ({{../chk_tukey}}) {\n    tuk <- TukeyHSD(fit)\n    rrad_emit_table(as.data.frame(tuk$fac), title = paste('Tukey HSD Post-Hoc:', '{{this}}'))\n  }\n  {{/each}}\n})"
+}

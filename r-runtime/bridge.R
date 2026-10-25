@@ -1,0 +1,386 @@
+# r-runtime/bridge.R
+# Persistent Bidirectional JSON-RPC Bridge between Rust and R
+
+suppressPackageStartupMessages({
+  library(jsonlite)
+})
+
+# Source sibling helpers
+script_dir <- tryCatch({
+  args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("--file=", args, value = TRUE)
+  if (length(file_arg) > 0) {
+    dirname(normalizePath(sub("--file=", "", file_arg[1])))
+  } else if (file.exists("r-runtime/metadata.R")) {
+    normalizePath("r-runtime")
+  } else {
+    getwd()
+  }
+}, error = function(e) getwd())
+
+source(file.path(script_dir, "metadata.R"))
+source(file.path(script_dir, "formatters.R"))
+
+# Default active dataset
+.active_dataset_name <- "mtcars"
+.active_data <- datasets::mtcars
+attr(.active_data, "dataset_name") <- "mtcars"
+assign(".active_data", .active_data, envir = .GlobalEnv)
+
+# Alias true and false to prevent errors from lowercase booleans in generated syntax
+assign("true", TRUE, envir = .GlobalEnv)
+assign("false", FALSE, envir = .GlobalEnv)
+
+# Helper to read dataset from path
+load_dataset_from_file <- function(file_path) {
+  if (file_path == "mtcars") {
+    df <- datasets::mtcars
+    attr(df, "dataset_name") <- "mtcars"
+    return(df)
+  }
+  if (file_path == "iris") {
+    df <- datasets::iris
+    attr(df, "dataset_name") <- "iris"
+    return(df)
+  }
+  if (!file.exists(file_path)) {
+    stop(paste("File not found:", file_path))
+  }
+
+  ext <- tolower(tools::file_ext(file_path))
+  df <- switch(ext,
+    "sav" = {
+      if (requireNamespace("haven", quietly = TRUE)) {
+        haven::read_sav(file_path)
+      } else {
+        stop("haven package required to read .sav files")
+      }
+    },
+    "csv" = {
+      read.csv(file_path, stringsAsFactors = FALSE, check.names = FALSE)
+    },
+    "xlsx" = ,
+    "xls" = {
+      if (requireNamespace("readxl", quietly = TRUE)) {
+        readxl::read_excel(file_path)
+      } else {
+        stop("readxl package required to read .xlsx/.xls files")
+      }
+    },
+    "rds" = {
+      readRDS(file_path)
+    },
+    stop(paste("Unsupported file format:", ext))
+  )
+
+  df <- as.data.frame(df)
+  attr(df, "dataset_name") <- basename(file_path)
+  df
+}
+
+# Helper to export dataset to file (CSV, SAV, XLSX)
+export_dataset_to_file <- function(file_path, format = NULL) {
+  df <- .GlobalEnv$.active_data
+  fmt <- tolower(if (!is.null(format) && nzchar(format)) format else tools::file_ext(file_path))
+  switch(fmt,
+    "csv" = {
+      write.csv(df, file = file_path, row.names = FALSE, na = "")
+    },
+    "sav" = {
+      if (requireNamespace("haven", quietly = TRUE)) {
+        haven::write_sav(df, path = file_path)
+      } else {
+        stop("haven package required to export .sav files")
+      }
+    },
+    "xlsx" = {
+      if (requireNamespace("writexl", quietly = TRUE)) {
+        writexl::write_xlsx(df, path = file_path)
+      } else {
+        stop("writexl package required to export .xlsx files")
+      }
+    },
+    stop(paste("Unsupported export format:", fmt))
+  )
+  list(success = TRUE, file_path = file_path, format = fmt)
+}
+
+# Main command dispatcher
+handle_request <- function(req) {
+  req_id <- if (!is.null(req$request_id)) req$request_id else req$id
+  cmd <- req$command_type %||% req$command
+  args <- req$args %||% list()
+  if (is.null(cmd) && !is.null(req$r_code)) {
+    cmd <- "EXECUTE_ANALYSIS"
+    args$r_code <- req$r_code
+  }
+
+  response <- list(
+    request_id = req_id,
+    status = "ok"
+  )
+
+  switch(cmd,
+    "PING" = {
+      response$version <- R.version.string
+      response$active_dataset <- attr(.GlobalEnv$.active_data, "dataset_name")
+    },
+
+    "LOAD_DATASET" = {
+      file_path <- args$file_path
+      df <- load_dataset_from_file(file_path)
+      assign(".active_data", df, envir = .GlobalEnv)
+      response$dataset_name <- attr(df, "dataset_name")
+      response$row_count <- nrow(df)
+      response$column_count <- ncol(df)
+      response$variables <- extract_variable_metadata(df)
+    },
+
+    "GET_METADATA" = {
+      df <- .GlobalEnv$.active_data
+      response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
+      response$row_count <- nrow(df)
+      response$column_count <- ncol(df)
+      response$variables <- extract_variable_metadata(df)
+    },
+
+    "UPDATE_VARIABLE" = {
+      col_name <- args$col_name
+      updates <- args$updates
+      df <- .GlobalEnv$.active_data
+      df <- mutate_variable_metadata(df, col_name, updates)
+      assign(".active_data", df, envir = .GlobalEnv)
+      response$variables <- extract_variable_metadata(df)
+    },
+
+    "GET_DATA_PAGE" = {
+      df <- .GlobalEnv$.active_data
+      offset <- as.integer(args$offset %||% 0)
+      limit <- as.integer(args$limit %||% 100)
+      total_rows <- nrow(df)
+
+      if (total_rows == 0 || offset >= total_rows) {
+        response$rows <- list()
+        response$total_rows <- total_rows
+        response$offset <- offset
+      } else {
+        start_idx <- offset + 1
+        end_idx <- min(total_rows, offset + limit)
+        sub_df <- df[start_idx:end_idx, , drop = FALSE]
+
+        # Format rows for JSON transmission
+        # Convert columns to simple primitives
+        clean_df <- as.data.frame(lapply(sub_df, function(x) {
+          if (inherits(x, "haven_labelled")) as.character(haven::as_factor(x))
+          else if (is.factor(x)) as.character(x)
+          else x
+        }), check.names = FALSE)
+
+        row_list <- lapply(seq_len(nrow(clean_df)), function(r) {
+          as.list(clean_df[r, , drop = FALSE])
+        })
+
+        response$rows <- row_list
+        response$total_rows <- total_rows
+        response$offset <- offset
+        response$limit <- limit
+      }
+    },
+
+    "EXPORT_DATASET" = {
+      file_path <- args$file_path
+      fmt <- args$format
+      res <- export_dataset_to_file(file_path, fmt)
+      response$file_path <- res$file_path
+      response$format <- res$format
+    },
+
+    "RENAME_VARIABLE" = {
+      old_name <- args$old_name
+      new_name <- trimws(args$new_name)
+      df <- .GlobalEnv$.active_data
+      idx <- match(old_name, names(df))
+      if (!is.na(idx) && nzchar(new_name)) {
+        names(df)[idx] <- new_name
+        assign(".active_data", df, envir = .GlobalEnv)
+      }
+      response$variables <- extract_variable_metadata(df)
+      response$column_count <- ncol(df)
+    },
+
+    "ADD_VARIABLE" = {
+      col_name <- trimws(args$name %||% "")
+      if (!nzchar(col_name)) {
+        col_name <- paste0("VAR", sprintf("%05d", ncol(.GlobalEnv$.active_data) + 1))
+      }
+      measure <- args$measure %||% "scale"
+      label <- args$label %||% col_name
+      df <- .GlobalEnv$.active_data
+      n_rows <- nrow(df)
+      if (n_rows == 0) n_rows <- 1
+      df[[col_name]] <- rep(NA_real_, n_rows)
+      attr(df[[col_name]], "label") <- label
+      assign(".active_data", df, envir = .GlobalEnv)
+      response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
+      response$row_count <- nrow(df)
+      response$column_count <- ncol(df)
+      response$variables <- extract_variable_metadata(df)
+    },
+
+    "COMPUTE_VARIABLE" = {
+      target_var <- trimws(args$target_var)
+      expr_str <- args$expression
+      df <- .GlobalEnv$.active_data
+      rrad_reset_blocks()
+
+      # Emit syntax block for transparency
+      syntax_text <- paste0(".active_data[['", target_var, "']] <- with(.active_data, ", expr_str, ")")
+      rrad_emit_syntax(syntax_text)
+
+      calc_val <- tryCatch({
+        val <- with(df, eval(parse(text = expr_str)))
+        if (length(val) == 1 && nrow(df) > 1) {
+          val <- rep(val, nrow(df))
+        }
+        val
+      }, error = function(e) {
+        stop(paste("Formula evaluation error:", conditionMessage(e)))
+      })
+
+      df[[target_var]] <- calc_val
+      assign(".active_data", df, envir = .GlobalEnv)
+
+      # Emit summary table of computed variable
+      if (is.numeric(calc_val)) {
+        summary_df <- data.frame(
+          Target_Variable = target_var,
+          Valid_N = sum(!is.na(calc_val)),
+          Mean = round(mean(calc_val, na.rm = TRUE), 4),
+          Std_Dev = round(sd(calc_val, na.rm = TRUE), 4),
+          Min = round(min(calc_val, na.rm = TRUE), 4),
+          Max = round(max(calc_val, na.rm = TRUE), 4)
+        )
+        rrad_emit_table(summary_df, title = paste("Compute Variable:", target_var))
+      } else {
+        rrad_emit_text(paste("Computed variable", target_var, "with", length(calc_val), "values."), title = "Compute Variable")
+      }
+
+      response$dataset_name <- attr(df, "dataset_name") %||% "Untitled"
+      response$row_count <- nrow(df)
+      response$column_count <- ncol(df)
+      response$variables <- extract_variable_metadata(df)
+      response$blocks <- rrad_get_blocks()
+    },
+
+    "LOAD_RAW_DATASET" = {
+      rows <- args$rows
+      vars <- args$variables
+      ds_name <- args$dataset_name %||% "Project Dataset"
+
+      if (is.null(rows) || length(rows) == 0) {
+        col_names <- vapply(vars, function(v) v$name, character(1))
+        df <- as.data.frame(matrix(ncol = length(col_names), nrow = 0))
+        names(df) <- col_names
+      } else {
+        df <- as.data.frame(do.call(rbind, lapply(rows, as.data.frame, stringsAsFactors = FALSE)), stringsAsFactors = FALSE)
+      }
+      attr(df, "dataset_name") <- ds_name
+      assign(".active_data", df, envir = .GlobalEnv)
+      response$dataset_name <- ds_name
+      response$row_count <- nrow(df)
+      response$column_count <- ncol(df)
+      response$variables <- extract_variable_metadata(df)
+    },
+
+    "EXECUTE_ANALYSIS" = {
+      r_code <- args$r_code %||% req$r_code
+      rrad_reset_blocks()
+
+      # Emit syntax block
+      rrad_emit_syntax(r_code)
+
+      # Evaluate safely
+      eval_res <- tryCatch({
+        withCallingHandlers(
+          {
+            # Evaluate in global environment so .active_data is accessible
+            parsed <- parse(text = r_code)
+            eval_output <- eval(parsed, envir = .GlobalEnv)
+
+            # If the user script returned a ggplot object or data.frame without calling rrad_emit_*
+            if (inherits(eval_output, "ggplot")) {
+              rrad_emit_plot(eval_output, title = "Plot Output")
+            } else if (inherits(eval_output, "data.frame") && length(rrad_get_blocks()) <= 1) {
+              rrad_emit_table(eval_output, title = "Result Table")
+            }
+
+            eval_output
+          },
+          warning = function(w) {
+            rrad_emit_warning(conditionMessage(w))
+            invokeRestart("muffleWarning")
+          },
+          message = function(m) {
+            msg <- conditionMessage(m)
+            # Only emit non-empty informative messages
+            if (nzchar(trimws(msg))) {
+              rrad_emit_text(trimws(msg), title = "R Message")
+            }
+          }
+        )
+      }, error = function(e) {
+        rrad_emit_error(conditionMessage(e))
+        NULL
+      })
+
+      response$blocks <- rrad_get_blocks()
+    },
+
+    {
+      response$status <- "error"
+      response$error <- paste("Unknown command:", cmd)
+    }
+  )
+
+  response
+}
+
+# Helper operator
+`%||%` <- function(a, b) if (!is.null(a)) a else b
+
+# Main stdio event loop
+main_loop <- function() {
+  con <- file("stdin", "r")
+  on.exit(close(con))
+
+  # Send ready signal
+  ready_msg <- list(type = "READY", version = R.version.string, active_dataset = "mtcars")
+  cat(paste0(toJSON(ready_msg, auto_unbox = TRUE), "\n"))
+  flush(stdout())
+
+  while (TRUE) {
+    line <- readLines(con, n = 1, warn = FALSE)
+    if (length(line) == 0) {
+      break # End of stream / EOF
+    }
+    line <- trimws(line)
+    if (!nzchar(line)) next
+
+    res <- tryCatch({
+      req <- fromJSON(line, simplifyVector = FALSE)
+      handle_request(req)
+    }, error = function(e) {
+      list(status = "error", error = conditionMessage(e))
+    })
+
+    # Output single-line JSON followed by newline
+    json_out <- toJSON(res, auto_unbox = TRUE, null = "null", digits = 8)
+    cat(paste0(json_out, "\n"))
+    flush(stdout())
+  }
+}
+
+# Run when invoked via Rscript
+if (!interactive() && is.null(getOption("rrad.no_main_loop"))) {
+  main_loop()
+}

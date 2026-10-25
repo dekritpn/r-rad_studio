@@ -1,0 +1,37 @@
+{
+  "$schema": "https://r-rad-studio.local/schemas/v1/rform.json",
+  "id": "stat.descriptives.crosstabs",
+  "version": "1.0.0",
+  "menu_path": ["Analyze", "Descriptives", "Crosstabs..."],
+  "window": { "title": "Crosstabs", "width": 640, "height": 450 },
+  "layout": [
+    {
+      "id": "src_vars",
+      "type": "VariableSourceList",
+      "grid": { "x": 1, "y": 1, "w": 5, "h": 10 },
+      "filter_types": ["nominal", "ordinal"]
+    },
+    {
+      "id": "row_var",
+      "type": "VariableTargetSlot",
+      "label": "Row(s):",
+      "grid": { "x": 6, "y": 1, "w": 7, "h": 3 },
+      "accepts": { "types": ["nominal", "ordinal"], "multiple": false, "required": true }
+    },
+    {
+      "id": "col_var",
+      "type": "VariableTargetSlot",
+      "label": "Column(s):",
+      "grid": { "x": 6, "y": 4, "w": 7, "h": 3 },
+      "accepts": { "types": ["nominal", "ordinal"], "multiple": false, "required": true }
+    },
+    {
+      "id": "chk_chisq",
+      "type": "Checkbox",
+      "label": "Compute Chi-Square Test (χ²)",
+      "grid": { "x": 6, "y": 7, "w": 7, "h": 1 },
+      "default": true
+    }
+  ],
+  "r_template": "local({\n  r_vec <- .active_data[[ '{{row_var}}' ]]\n  c_vec <- .active_data[[ '{{col_var}}' ]]\n  tbl <- table(r_vec, c_vec)\n  df_tbl <- as.data.frame.matrix(tbl)\n  df_tbl$Total <- rowSums(df_tbl)\n  df_tbl <- rbind(df_tbl, Total = colSums(df_tbl))\n  df_tbl <- cbind(Row = rownames(df_tbl), df_tbl)\n  rrad_emit_table(df_tbl, title = paste('Crosstabulation:', '{{row_var}}', '×', '{{col_var}}'))\n  if ({{chk_chisq}}) {\n    res_chi <- suppressWarnings(chisq.test(tbl))\n    rrad_emit_table(broom::tidy(res_chi), title = 'Chi-Square Tests')\n  }\n})"
+}

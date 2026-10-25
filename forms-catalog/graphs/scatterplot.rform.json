@@ -1,0 +1,37 @@
+{
+  "$schema": "https://r-rad-studio.local/schemas/v1/rform.json",
+  "id": "stat.graphs.scatterplot",
+  "version": "1.0.0",
+  "menu_path": ["Analyze", "Graphs", "Scatterplot..."],
+  "window": { "title": "Scatterplot Builder", "width": 640, "height": 460 },
+  "layout": [
+    {
+      "id": "src_vars",
+      "type": "VariableSourceList",
+      "grid": { "x": 1, "y": 1, "w": 5, "h": 10 },
+      "filter_types": ["scale", "ordinal", "nominal"]
+    },
+    {
+      "id": "y_var",
+      "type": "VariableTargetSlot",
+      "label": "Y-Axis Variable:",
+      "grid": { "x": 6, "y": 1, "w": 7, "h": 3 },
+      "accepts": { "types": ["scale"], "multiple": false, "required": true }
+    },
+    {
+      "id": "x_var",
+      "type": "VariableTargetSlot",
+      "label": "X-Axis Variable:",
+      "grid": { "x": 6, "y": 4, "w": 7, "h": 3 },
+      "accepts": { "types": ["scale"], "multiple": false, "required": true }
+    },
+    {
+      "id": "chk_smooth",
+      "type": "Checkbox",
+      "label": "Add Linear Trend Line (lm)",
+      "grid": { "x": 6, "y": 7, "w": 7, "h": 1 },
+      "default": true
+    }
+  ],
+  "r_template": "local({\n  df <- .active_data\n  p <- ggplot2::ggplot(df, ggplot2::aes(x = {{escapeR x_var}}, y = {{escapeR y_var}})) +\n    ggplot2::geom_point(color = '#6366f1', size = 2.5, alpha = 0.8) +\n    ggplot2::theme_minimal(base_size = 12) +\n    ggplot2::labs(\n      title = paste('Scatterplot:', '{{y_var}}', 'vs', '{{x_var}}'),\n      x = '{{x_var}}',\n      y = '{{y_var}}'\n    )\n  if ({{chk_smooth}}) {\n    p <- p + ggplot2::geom_smooth(method = 'lm', color = '#ef4444', fill = '#fecaca', se = TRUE)\n  }\n  rrad_emit_plot(p, title = paste('Scatterplot:', '{{y_var}}', 'vs', '{{x_var}}'))\n})"
+}

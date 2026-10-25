@@ -1,0 +1,37 @@
+{
+  "$schema": "https://r-rad-studio.local/schemas/v1/rform.json",
+  "id": "stat.regression.binary_logistic",
+  "version": "1.0.0",
+  "menu_path": ["Analyze", "Regression", "Binary Logistic..."],
+  "window": { "title": "Binary Logistic Regression", "width": 640, "height": 470 },
+  "layout": [
+    {
+      "id": "src_vars",
+      "type": "VariableSourceList",
+      "grid": { "x": 1, "y": 1, "w": 5, "h": 10 },
+      "filter_types": ["scale", "ordinal", "nominal"]
+    },
+    {
+      "id": "dep_var",
+      "type": "VariableTargetSlot",
+      "label": "Binary Dependent Variable:",
+      "grid": { "x": 6, "y": 1, "w": 7, "h": 2 },
+      "accepts": { "types": ["nominal", "ordinal", "scale"], "multiple": false, "required": true }
+    },
+    {
+      "id": "covariates",
+      "type": "VariableTargetSlot",
+      "label": "Covariate(s):",
+      "grid": { "x": 6, "y": 3, "w": 7, "h": 4 },
+      "accepts": { "types": ["scale", "ordinal", "nominal"], "multiple": true, "required": true }
+    },
+    {
+      "id": "chk_exp",
+      "type": "Checkbox",
+      "label": "Display Odds Ratios Exp(B) with 95% Confidence Intervals",
+      "grid": { "x": 6, "y": 7, "w": 7, "h": 1 },
+      "default": true
+    }
+  ],
+  "r_template": "local({\n  fmla <- as.formula(paste('as.factor({{escapeR dep_var}}) ~', paste(c({{#each covariates}}'{{escapeR this}}',{{/each}} NULL), collapse = ' + ')))\n  fit <- glm(fmla, data = .active_data, family = binomial())\n  res_tidy <- broom::tidy(fit, conf.int = {{chk_exp}}, exponentiate = {{chk_exp}})\n  rrad_emit_table(res_tidy, title = 'Logistic Regression Parameter Estimates')\n  rrad_emit_table(broom::glance(fit), title = 'Model Summary (AIC and Log-Likelihood)')\n})"
+}

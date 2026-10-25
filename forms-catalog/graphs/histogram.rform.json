@@ -1,0 +1,33 @@
+{
+  "$schema": "https://r-rad-studio.local/schemas/v1/rform.json",
+  "id": "stat.graphs.histogram",
+  "version": "1.0.0",
+  "menu_path": ["Analyze", "Graphs", "Histogram..."],
+  "window": { "title": "Histogram Builder", "width": 640, "height": 450 },
+  "layout": [
+    {
+      "id": "src_vars",
+      "type": "VariableSourceList",
+      "grid": { "x": 1, "y": 1, "w": 5, "h": 10 },
+      "filter_types": ["scale"]
+    },
+    {
+      "id": "var",
+      "type": "VariableTargetSlot",
+      "label": "Variable:",
+      "grid": { "x": 6, "y": 1, "w": 7, "h": 3 },
+      "accepts": { "types": ["scale"], "multiple": false, "required": true }
+    },
+    {
+      "id": "bins",
+      "type": "NumericInput",
+      "label": "Number of Bins:",
+      "grid": { "x": 6, "y": 4, "w": 7, "h": 1 },
+      "default": 15,
+      "min": 5,
+      "max": 100,
+      "step": 1
+    }
+  ],
+  "r_template": "local({\n  df <- .active_data\n  v <- df[[ '{{var}}' ]]\n  p <- ggplot2::ggplot(df, ggplot2::aes(x = {{escapeR var}})) +\n    ggplot2::geom_histogram(bins = {{bins}}, fill = '#4f46e5', color = '#ffffff', alpha = 0.85) +\n    ggplot2::theme_minimal(base_size = 12) +\n    ggplot2::labs(\n      title = paste('Distribution of', '{{var}}'),\n      x = '{{var}}',\n      y = 'Count'\n    )\n  rrad_emit_plot(p, title = paste('Histogram:', '{{var}}'))\n})"
+}

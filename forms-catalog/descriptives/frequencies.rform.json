@@ -1,0 +1,37 @@
+{
+  "$schema": "https://r-rad-studio.local/schemas/v1/rform.json",
+  "id": "stat.descriptives.frequencies",
+  "version": "1.0.0",
+  "menu_path": ["Analyze", "Descriptives", "Frequencies..."],
+  "window": { "title": "Frequencies", "width": 640, "height": 450 },
+  "layout": [
+    {
+      "id": "src_vars",
+      "type": "VariableSourceList",
+      "grid": { "x": 1, "y": 1, "w": 5, "h": 10 },
+      "filter_types": ["scale", "ordinal", "nominal"]
+    },
+    {
+      "id": "target_vars",
+      "type": "VariableTargetSlot",
+      "label": "Variable(s):",
+      "grid": { "x": 6, "y": 1, "w": 7, "h": 5 },
+      "accepts": { "types": ["scale", "ordinal", "nominal"], "multiple": true, "required": true }
+    },
+    {
+      "id": "chk_tables",
+      "type": "Checkbox",
+      "label": "Display frequency distribution tables",
+      "grid": { "x": 6, "y": 6, "w": 7, "h": 1 },
+      "default": true
+    },
+    {
+      "id": "chk_stats",
+      "type": "Checkbox",
+      "label": "Compute descriptive statistics (Mean, SD, Min, Max)",
+      "grid": { "x": 6, "y": 7, "w": 7, "h": 1 },
+      "default": true
+    }
+  ],
+  "r_template": "local({\n  {{#each target_vars}}\n  v <- .active_data[[ '{{this}}' ]]\n  if ({{../chk_stats}} && is.numeric(v)) {\n    stats_df <- data.frame(\n      N = sum(!is.na(v)),\n      Mean = mean(v, na.rm = TRUE),\n      Std_Dev = sd(v, na.rm = TRUE),\n      Min = min(v, na.rm = TRUE),\n      Max = max(v, na.rm = TRUE)\n    )\n    rrad_emit_table(stats_df, title = paste('Descriptive Statistics:', '{{this}}'))\n  }\n  if ({{../chk_tables}}) {\n    freq_tb <- as.data.frame(table(v, useNA = 'ifany'))\n    names(freq_tb) <- c('Value', 'Frequency')\n    freq_tb$Percent <- round((freq_tb$Frequency / sum(freq_tb$Frequency)) * 100, 1)\n    rrad_emit_table(freq_tb, title = paste('Frequencies:', '{{this}}'))\n  }\n  {{/each}}\n})"
+}

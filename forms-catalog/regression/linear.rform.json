@@ -1,0 +1,37 @@
+{
+  "$schema": "https://r-rad-studio.local/schemas/v1/rform.json",
+  "id": "stat.regression.linear",
+  "version": "1.0.0",
+  "menu_path": ["Analyze", "Regression", "Linear Regression..."],
+  "window": { "title": "Linear Regression", "width": 640, "height": 470 },
+  "layout": [
+    {
+      "id": "src_vars",
+      "type": "VariableSourceList",
+      "grid": { "x": 1, "y": 1, "w": 5, "h": 10 },
+      "filter_types": ["scale", "ordinal", "nominal"]
+    },
+    {
+      "id": "dep_var",
+      "type": "VariableTargetSlot",
+      "label": "Dependent Variable:",
+      "grid": { "x": 6, "y": 1, "w": 7, "h": 2 },
+      "accepts": { "types": ["scale"], "multiple": false, "required": true }
+    },
+    {
+      "id": "indep_vars",
+      "type": "VariableTargetSlot",
+      "label": "Independent Variable(s):",
+      "grid": { "x": 6, "y": 3, "w": 7, "h": 4 },
+      "accepts": { "types": ["scale", "ordinal", "nominal"], "multiple": true, "required": true }
+    },
+    {
+      "id": "chk_diagnostics",
+      "type": "Checkbox",
+      "label": "Generate Residuals vs Fitted Diagnostic Plot",
+      "grid": { "x": 6, "y": 7, "w": 7, "h": 1 },
+      "default": true
+    }
+  ],
+  "r_template": "local({\n  fmla <- as.formula(paste('{{escapeR dep_var}} ~', paste(c({{#each indep_vars}}'{{escapeR this}}',{{/each}} NULL), collapse = ' + ')))\n  fit <- lm(fmla, data = .active_data)\n  rrad_emit_table(broom::tidy(fit), title = 'Linear Regression Coefficients')\n  rrad_emit_table(broom::glance(fit), title = 'Model Summary (R² and F-Statistic)')\n  if ({{chk_diagnostics}}) {\n    p <- ggplot2::ggplot(data.frame(Fitted = fitted(fit), Residuals = resid(fit)), ggplot2::aes(x = Fitted, y = Residuals)) +\n      ggplot2::geom_point(color = '#4f46e5', alpha = 0.8) +\n      ggplot2::geom_hline(yintercept = 0, linetype = 'dashed', color = '#ef4444') +\n      ggplot2::theme_minimal() +\n      ggplot2::labs(title = 'Residuals vs Fitted Values', x = 'Fitted Values', y = 'Residuals')\n    rrad_emit_plot(p, title = 'Linear Regression Diagnostic Plot')\n  }\n})"
+}
